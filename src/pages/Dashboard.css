@@ -7,6 +7,7 @@ html {
   height: 100%;
   min-height: 100vh;
   overflow-x: hidden;
+  overflow-y: auto; /* Allow scrolling on the body */
   background-color: #fff !important;
   transition: background 0.3s ease-in-out;
 }
@@ -26,10 +27,11 @@ body.dark-mode html {
   padding: 0;
   background: #fff !important;
   transition: background 0.3s, color 0.3s;
-  min-height: 100vh;
+  min-height: 100vh; /* Ensure the container takes at least the full viewport height */
   width: 100%;
   box-sizing: border-box;
   margin: 0;
+  overflow-y: auto; /* Allow scrolling if content overflows */
 }
 
 body.dark-mode .dashboard-container {
@@ -43,12 +45,12 @@ body.dark-mode .dashboard-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px; /* Reduced padding */
+  padding: 15px;
   background: #f8f9fa;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
-  margin: 10px 0; /* Reduced margin */
-  max-width: 95vw; /* Increased max-width */
+  margin: 10px 0;
+  max-width: 95vw;
 }
 
 body.dark-mode .dashboard-header {
@@ -58,11 +60,11 @@ body.dark-mode .dashboard-header {
 /* Header Title */
 .dashboard-header h2 {
   margin: 0;
-  font-size: 20px; /* Reduced font size */
+  font-size: 20px;
   flex: 1;
   text-align: center;
   color: #333;
-  margin-right: 15px; /* Reduced margin */
+  margin-right: 15px;
 }
 
 body.dark-mode .dashboard-header h2 {
@@ -72,22 +74,22 @@ body.dark-mode .dashboard-header h2 {
 /* Export Buttons */
 .export-buttons {
   display: flex;
-  gap: 10px; /* Reduced gap */
+  gap: 10px;
 }
 
 .export-btn {
   background: linear-gradient(135deg, #00c6ff, #0072ff);
   color: white;
   border: none;
-  padding: 8px 14px; /* Reduced padding */
-  border-radius: 20px; /* Reduced border-radius */
+  padding: 8px 14px;
+  border-radius: 20px;
   cursor: pointer;
   transition: 0.3s ease-in-out;
   display: flex;
   align-items: center;
   gap: 5px;
   font-weight: bold;
-  font-size: 12px; /* Reduced font size */
+  font-size: 12px;
 }
 
 .export-btn:hover {
@@ -99,8 +101,8 @@ body.dark-mode .dashboard-header h2 {
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 20px; /* Reduced font size */
-  margin-left: 15px; /* Reduced margin */
+  font-size: 20px;
+  margin-left: 15px;
 }
 
 .theme-toggle svg {
@@ -114,22 +116,24 @@ body.dark-mode .theme-toggle svg {
 /* Student Cards - Grid Layout */
 .student-cards {
   display: grid;
-  grid-template-columns: repeat(
-    auto-fit,
-    minmax(300px, 1fr)
-  ); /* Adjusted to match new card width */
-  gap: 20px; /* Reduced gap */
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
   justify-content: center;
   padding: 10px;
   width: 100%;
-  max-width: 95vw; /* Increased max-width */
+  max-width: 95vw;
   margin: 0 auto;
+  overflow-y: auto; /* Enable vertical scrolling */
+  max-height: calc(
+    100vh - 200px
+  ); /* Adjust height to fit within viewport, accounting for header and nav */
+  box-sizing: border-box;
 }
 
 /* Add Student Button - Match Student Card Styling */
 .add-student-btn {
-  width: 300px; /* Match new card width */
-  height: 250px; /* Match new card height */
+  width: 300px;
+  height: 250px;
   background: white;
   border: none;
   border-radius: 10px;
@@ -182,9 +186,9 @@ body.dark-mode .add-student-btn .plus-icon {
   left: 50%;
   transform: translate(-50%, -50%);
   background: linear-gradient(135deg, #ffffff, #f0f4f8);
-  padding: 15px; /* Reduced padding */
+  padding: 15px;
   padding-bottom: 10px;
-  border-radius: 15px; /* Reduced border-radius */
+  border-radius: 15px;
   box-shadow: 0 8px 32px rgba(0, 123, 255, 0.2), 0 0 20px rgba(0, 191, 255, 0.1);
   width: 350px;
   max-width: 90%;
@@ -218,8 +222,8 @@ body.dark-mode .modal {
 
 /* Modal Title */
 .modal h2 {
-  margin: 0 0 10px; /* Reduced margin */
-  font-size: 18px; /* Reduced font size */
+  margin: 0 0 10px;
+  font-size: 18px;
   text-align: center;
   color: #333;
   font-weight: 600;
@@ -232,11 +236,11 @@ body.dark-mode .modal h2 {
 /* Close Button */
 .close-btn {
   position: absolute;
-  top: 8px; /* Reduced position */
+  top: 8px;
   right: 8px;
   background: transparent;
   border: none;
-  font-size: 16px; /* Reduced font size */
+  font-size: 16px;
   cursor: pointer;
   color: #666;
   transition: color 0.3s;
@@ -259,19 +263,19 @@ body.dark-mode .close-btn:hover {
 .modal form {
   display: flex;
   flex-direction: column;
-  gap: 8px; /* Reduced gap */
+  gap: 8px;
   margin: 0;
   padding: 0;
 }
 
 /* Form Inputs */
 .modal input {
-  padding: 6px; /* Reduced padding */
+  padding: 6px;
   border: 1px solid #ddd;
-  border-radius: 6px; /* Reduced border-radius */
-  font-size: 12px; /* Reduced font size */
+  border-radius: 6px;
+  font-size: 12px;
   background: rgba(255, 255, 255, 0.8);
-  color: #333 !important; /* Fixed color */
+  color: #333 !important;
   transition: border-color 0.3s, box-shadow 0.3s;
   margin: 0;
 }
@@ -284,7 +288,7 @@ body.dark-mode .close-btn:hover {
 
 body.dark-mode .modal input {
   background: rgba(255, 255, 255, 0.1);
-  color: #fff !important; /* Fixed color */
+  color: #fff !important;
   border-color: #666;
 }
 
@@ -297,15 +301,15 @@ body.dark-mode .modal input:focus {
 .modal button[type="submit"] {
   background: #28a745;
   color: white;
-  padding: 6px; /* Reduced padding */
+  padding: 6px;
   border: none;
-  border-radius: 6px; /* Reduced border-radius */
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 12px; /* Reduced font size */
+  font-size: 12px;
   font-weight: 600;
   transition: background 0.3s, transform 0.1s;
   margin: 0;
-  margin-top: 6px; /* Reduced margin */
+  margin-top: 6px;
 }
 
 .modal button[type="submit"]:hover {
@@ -320,9 +324,9 @@ body.dark-mode .modal input:focus {
 /* No Students Message */
 .no-students-message {
   text-align: center;
-  font-size: 16px; /* Reduced font size */
+  font-size: 16px;
   color: #666;
-  margin: 15px 0; /* Reduced margin */
+  margin: 15px 0;
 }
 
 body.dark-mode .no-students-message {

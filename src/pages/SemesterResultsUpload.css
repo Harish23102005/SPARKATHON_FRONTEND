@@ -3,6 +3,9 @@
   max-width: 1200px;
   margin: 0 auto;
   font-family: Arial, sans-serif;
+  min-height: 100vh; /* Ensure the container takes at least the full viewport height */
+  overflow-y: auto; /* Allow vertical scrolling */
+  box-sizing: border-box;
 }
 
 .semester-header {
@@ -180,5 +183,32 @@
   .attainment-procedure-table tr {
     page-break-inside: avoid;
     page-break-after: auto;
+  }
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .semester-results-upload-container {
+    padding: 10px;
+  }
+
+  .file-input {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .file-input label {
+    width: 100%;
+    margin-bottom: 5px;
+  }
+
+  .file-input input[type="file"] {
+    width: 100%;
+  }
+
+  .attainment-procedure-table,
+  .results-table {
+    display: block;
+    overflow-x: auto; /* Allow horizontal scrolling for tables on small screens */
   }
 }

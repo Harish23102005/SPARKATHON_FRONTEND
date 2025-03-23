@@ -32,6 +32,7 @@ body.dark-mode html {
   box-sizing: border-box;
   margin: 0;
   overflow-y: auto; /* Allow scrolling if content overflows */
+  border: 5px solid red !important; /* Debug style to confirm CSS application */
 }
 
 body.dark-mode .dashboard-container {

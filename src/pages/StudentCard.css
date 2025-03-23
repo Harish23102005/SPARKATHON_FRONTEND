@@ -4,6 +4,7 @@
   perspective: 1000px;
   cursor: pointer;
   position: relative;
+  border: 5px solid blue !important; /* Debug style to confirm CSS application */
 }
 
 .card-inner {

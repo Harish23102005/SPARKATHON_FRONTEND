@@ -21,9 +21,8 @@ const LoginSignup = ({ isSignup, setIsSignup }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const url = isSignup
-        ? "https://student-performance-tracker-backend.onrender.com/api/signup"
-        : "https://student-performance-tracker-backend.onrender.com/api/login";
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000"; // Fallback for local development
+      const url = isSignup ? `${baseUrl}/api/signup` : `${baseUrl}/api/login`;
       const res = await axios.post(url, formData);
       if (res.data.token) {
         localStorage.setItem("token", res.data.token);
@@ -36,7 +35,6 @@ const LoginSignup = ({ isSignup, setIsSignup }) => {
       alert(error.response?.data?.error || "Something went wrong!");
     }
   };
-
   // Create an array of spans for the background grid
   const spans = Array.from({ length: 480 }).map((_, index) => (
     <span key={index}></span>

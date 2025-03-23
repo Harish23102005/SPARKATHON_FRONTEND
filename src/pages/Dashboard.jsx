@@ -39,6 +39,11 @@ const Dashboard = () => {
   const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
   const [loading, setLoading] = useState(false);
 
+  // Define base URL consistently
+  const baseUrl = process.env.NODE_ENV === "development"
+    ? "http://localhost:5000/api"
+    : "https://student-performance-tracker-backend.onrender.com/api";
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -53,11 +58,11 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      if (!token) return;
-
-      const baseUrl = process.env.NODE_ENV === "development"
-        ? "http://localhost:5000/api"
-        : "https://student-performance-tracker-backend.onrender.com/api";
+      if (!token) {
+        alert("No token found! Please log in again.");
+        navigate("/login");
+        return;
+      }
 
       const response = await axios.get(`${baseUrl}/students`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -73,15 +78,23 @@ const Dashboard = () => {
       });
       setStudents(validStudents);
 
+      // Fetch CO data for each student
       for (const student of validStudents) {
         if (student.student_id) {
           await fetchCoData(student.student_id);
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 100)); // Throttle requests
         }
       }
     } catch (error) {
       console.error("Error fetching students:", error);
+      if (error.response?.status === 401) {
+        alert("Session expired! Please log in again.");
+        localStorage.removeItem("token");
+        navigate("/login");
+        return;
+      }
       if (retryCount < 2) {
+        console.log(`Retrying fetchStudents (attempt ${retryCount + 1})...`);
         setTimeout(() => fetchStudents(retryCount + 1), 1000);
       } else {
         alert(error.response?.data?.error || "Failed to fetch students after retries.");
@@ -101,16 +114,25 @@ const Dashboard = () => {
     setCoLoading((prev) => ({ ...prev, [studentId]: true }));
     try {
       const token = localStorage.getItem("token");
-      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-      const response = await axios.get(`${baseUrl}/api/students/calculate-co-po/${studentId}`, {
+      if (!token) {
+        throw new Error("No token found");
+      }
+      const response = await axios.get(`${baseUrl}/students/calculate-co-po/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCoData((prev) => ({ ...prev, [studentId]: response.data }));
       console.log(`CO data for student ${studentId}:`, response.data);
     } catch (error) {
       console.error(`Error fetching CO data for student ${studentId}:`, error);
+      if (error.response?.status === 401) {
+        alert("Session expired! Please log in again.");
+        localStorage.removeItem("token");
+        navigate("/login");
+        return;
+      }
       setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [] } }));
       if (retryCount < 2) {
+        console.log(`Retrying fetchCoData for student ${studentId} (attempt ${retryCount + 1})...`);
         setTimeout(() => fetchCoData(studentId, retryCount + 1), 1000);
       }
     } finally {
@@ -257,8 +279,17 @@ const Dashboard = () => {
       examMarks: "",
       totalInternal: "",
       totalExam: "",
-      coMapping: student.marks[0]?.coMapping || [{ coId: "CO1", internal: "", exam: "", totalInternal: "", totalExam: "" }],
-      coTargets: student.courseOutcomes || [{ coId: "CO1", target: "70" }],
+      coMapping: student.Marks?.[0]?.MarksCoMappings?.map(co => ({
+        coId: co.coId,
+        internal: co.internal || "",
+        exam: co.exam || "",
+        totalInternal: co.totalInternal || "",
+        totalExam: co.totalExam || "",
+      })) || [{ coId: "CO1", internal: "", exam: "", totalInternal: "", totalExam: "" }],
+      coTargets: student.CourseOutcomes?.map(co => ({
+        coId: co.coId,
+        target: co.target || "70",
+      })) || [{ coId: "CO1", target: "70" }],
     });
     setEditingStudentId(student.student_id);
     setIsModalOpen(true);
@@ -270,14 +301,22 @@ const Dashboard = () => {
     if (!window.confirm("Are you sure you want to delete this student?")) return;
     try {
       const token = localStorage.getItem("token");
-      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-      await axios.delete(`${baseUrl}/api/students/${studentId}`, {
+      if (!token) {
+        throw new Error("No token found");
+      }
+      await axios.delete(`${baseUrl}/students/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setStudents(students.filter((student) => student.student_id !== studentId));
       alert("Student deleted successfully!");
     } catch (error) {
       console.error("Error deleting student:", error);
+      if (error.response?.status === 401) {
+        alert("Session expired! Please log in again.");
+        localStorage.removeItem("token");
+        navigate("/login");
+        return;
+      }
       alert(error.response?.data?.error || "Failed to delete student.");
     }
   };
@@ -328,7 +367,12 @@ const Dashboard = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
-    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    if (!token) {
+      alert("Session expired! Please log in again.");
+      localStorage.removeItem("token");
+      navigate("/login");
+      return;
+    }
     try {
       setLoading(true);
       if (modalType === "add") {
@@ -358,42 +402,40 @@ const Dashboard = () => {
           })),
         };
         console.log("Submitting new student:", newStudent);
-        await axios.post(`${baseUrl}/api/students`, newStudent, {
+        await axios.post(`${baseUrl}/students`, newStudent, {
           headers: { Authorization: `Bearer ${token}` },
         });
         alert("Student added successfully!");
       } else if (modalType === "update") {
         const updatedMarks = {
-          year: formData.year,
-          internal: parseFloat(formData.internalMarks) || 0,
-          exam: parseFloat(formData.examMarks) || 0,
-          totalInternal: parseFloat(formData.totalInternal) || 0,
-          totalExam: parseFloat(formData.totalExam) || 0,
-          coMapping: formData.coMapping.map((co) => ({
-            coId: co.coId,
-            internal: parseFloat(co.internal) || 0,
-            exam: parseFloat(co.exam) || 0,
-            totalInternal: parseFloat(co.totalInternal) || 0,
-            totalExam: parseFloat(co.totalExam) || 0,
-          })),
+          marks: [
+            {
+              year: formData.year,
+              internal: parseFloat(formData.internalMarks) || 0,
+              exam: parseFloat(formData.examMarks) || 0,
+              totalInternal: parseFloat(formData.totalInternal) || 0,
+              totalExam: parseFloat(formData.totalExam) || 0,
+              coMapping: formData.coMapping.map((co) => ({
+                coId: co.coId,
+                internal: parseFloat(co.internal) || 0,
+                exam: parseFloat(co.exam) || 0,
+                totalInternal: parseFloat(co.totalInternal) || 0,
+                totalExam: parseFloat(co.totalExam) || 0,
+              })),
+            },
+          ],
         };
         await axios.put(
-          `${baseUrl}/api/students/${editingStudentId}`,
-          {
-            marks: updatedMarks,
-            courseOutcomes: formData.coTargets.map((target) => ({
-              coId: target.coId,
-              target: parseFloat(target.target) || 70,
-            })),
-          },
+          `${baseUrl}/students/${editingStudentId}`,
+          updatedMarks,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        const updatedCoData = await axios.get(`${baseUrl}/api/students/calculate-co-po/${editingStudentId}`, {
+        const updatedCoData = await axios.get(`${baseUrl}/students/calculate-co-po/${editingStudentId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const adjustedTargets = adjustTargetsAutomatically(formData.coTargets, updatedCoData.data.coSummary);
         await axios.put(
-          `${baseUrl}/api/students/${editingStudentId}`,
+          `${baseUrl}/students/${editingStudentId}`,
           {
             courseOutcomes: adjustedTargets.map((target) => ({
               coId: target.coId,
@@ -408,6 +450,12 @@ const Dashboard = () => {
       fetchStudents();
     } catch (error) {
       console.error("Error submitting form:", error);
+      if (error.response?.status === 401) {
+        alert("Session expired! Please log in again.");
+        localStorage.removeItem("token");
+        navigate("/login");
+        return;
+      }
       alert(error.response?.data?.error || "Failed to save data.");
     } finally {
       setLoading(false);
@@ -441,18 +489,18 @@ const Dashboard = () => {
 
   const historicalChartData = (student) => {
     const data = {
-      labels: student.marks.map((m) => m.year || `Entry ${student.marks.indexOf(m) + 1}`),
+      labels: student.Marks?.map((m, index) => m.year || `Entry ${index + 1}`) || [],
       datasets: [
         {
           label: "Internal (%)",
-          data: student.marks.map((m) => (m.internal / m.totalInternal) * 100 || 0),
+          data: student.Marks?.map((m) => (m.internal / m.totalInternal) * 100 || 0) || [],
           backgroundColor: "rgba(40, 167, 69, 0.6)",
           borderColor: "rgba(40, 167, 69, 1)",
           borderWidth: 1,
         },
         {
           label: "Exam (%)",
-          data: student.marks.map((m) => (m.exam / m.totalExam) * 100 || 0),
+          data: student.Marks?.map((m) => (m.exam / m.totalExam) * 100 || 0) || [],
           backgroundColor: "rgba(255, 99, 132, 0.6)",
           borderColor: "rgba(255, 99, 132, 1)",
           borderWidth: 1,
@@ -464,10 +512,10 @@ const Dashboard = () => {
   };
 
   const calculateThreeYearComparison = (student) => {
-    const recentMarks = student.marks.slice(-3);
+    const recentMarks = student.Marks?.slice(-3) || [];
     const avgInternal = recentMarks.reduce((sum, m) => sum + (m.internal / m.totalInternal) * 100, 0) / recentMarks.length || 0;
     const avgExam = recentMarks.reduce((sum, m) => sum + (m.exam / m.totalExam) * 100, 0) / recentMarks.length || 0;
-    const latest = student.marks[student.marks.length - 1];
+    const latest = recentMarks[recentMarks.length - 1];
     const currentInternal = (latest?.internal / latest?.totalInternal) * 100 || 0;
     const currentExam = (latest?.exam / latest?.totalExam) * 100 || 0;
     return {
@@ -578,7 +626,7 @@ const Dashboard = () => {
                       <>
                         <h3>Performance Trends</h3>
                         <div className="chart-container">
-                          {student.marks && student.marks.length > 0 ? (
+                          {student.Marks && student.Marks.length > 0 ? (
                             <Bar
                               data={historicalChartData(student)}
                               options={{

@@ -489,35 +489,35 @@ const Dashboard = () => {
 
   const historicalChartData = (student) => {
     const data = {
-      labels: student.Marks?.map((m, index) => m.year || `Entry ${index + 1}`) || [],
+      labels: student?.Marks?.map((m, index) => m.year || `Entry ${index + 1}`) || [],
       datasets: [
         {
           label: "Internal (%)",
-          data: student.Marks?.map((m) => (m.internal / m.totalInternal) * 100 || 0) || [],
+          data: student?.Marks?.map((m) => (m.internal / (m.totalInternal || 1) * 100) || 0) || [],
           backgroundColor: "rgba(40, 167, 69, 0.6)",
           borderColor: "rgba(40, 167, 69, 1)",
           borderWidth: 1,
         },
         {
           label: "Exam (%)",
-          data: student.Marks?.map((m) => (m.exam / m.totalExam) * 100 || 0) || [],
+          data: student?.Marks?.map((m) => (m.exam / (m.totalExam || 1) * 100) || 0) || [],
           backgroundColor: "rgba(255, 99, 132, 0.6)",
           borderColor: "rgba(255, 99, 132, 1)",
           borderWidth: 1,
         },
       ],
     };
-    console.log(`Historical Chart Data for student ${student.student_id}:`, data);
+    console.log(`Historical Chart Data for student ${student?.student_id || 'unknown'}:`, data);
     return data;
   };
-
+  
   const calculateThreeYearComparison = (student) => {
-    const recentMarks = student.Marks?.slice(-3) || [];
-    const avgInternal = recentMarks.reduce((sum, m) => sum + (m.internal / m.totalInternal) * 100, 0) / recentMarks.length || 0;
-    const avgExam = recentMarks.reduce((sum, m) => sum + (m.exam / m.totalExam) * 100, 0) / recentMarks.length || 0;
-    const latest = recentMarks[recentMarks.length - 1];
-    const currentInternal = (latest?.internal / latest?.totalInternal) * 100 || 0;
-    const currentExam = (latest?.exam / latest?.totalExam) * 100 || 0;
+    const recentMarks = student?.Marks?.slice(-3) || [];
+    const avgInternal = recentMarks.reduce((sum, m) => sum + (m.internal / (m.totalInternal || 1) * 100), 0) / (recentMarks.length || 1) || 0;
+    const avgExam = recentMarks.reduce((sum, m) => sum + (m.exam / (m.totalExam || 1) * 100), 0) / (recentMarks.length || 1) || 0;
+    const latest = recentMarks[recentMarks.length - 1] || { internal: 0, totalInternal: 1, exam: 0, totalExam: 1 };
+    const currentInternal = (latest.internal / (latest.totalInternal || 1)) * 100 || 0;
+    const currentExam = (latest.exam / (latest.totalExam || 1)) * 100 || 0;
     return {
       avgInternal: avgInternal.toFixed(2),
       avgExam: avgExam.toFixed(2),

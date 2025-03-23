@@ -53,10 +53,16 @@ const Dashboard = () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-      const baseUrl = "https://student-performance-tracker-backend.onrender.com/api" || "http://localhost:5000";
-      const response = await axios.get(`${baseUrl}/api/students`, {
+      
+      const baseUrl = process.env.NODE_ENV === "development"
+        ? "http://localhost:5000/api"
+        : "https://student-performance-tracker-backend.onrender.com/api";
+      
+      // ✅ FIXED: Remove extra `/api`
+      const response = await axios.get(`${baseUrl}/students`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       setStudents(response.data);
       response.data.forEach((student) => {
         fetchCoPoData(student.studentId);
@@ -71,7 +77,8 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+};
+
 
   const fetchCoPoData = async (studentId, retryCount = 0) => {
     try {

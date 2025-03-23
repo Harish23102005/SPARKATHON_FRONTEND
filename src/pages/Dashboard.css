@@ -32,7 +32,6 @@ body.dark-mode html {
   box-sizing: border-box;
   margin: 0;
   overflow-y: auto; /* Allow scrolling if content overflows */
-  border: 5px solid red !important; /* Debug style to confirm CSS application */
 }
 
 body.dark-mode .dashboard-container {
@@ -88,7 +87,7 @@ body.dark-mode .dashboard-header h2 {
   background-color: #28a745;
   color: white;
   border: none;
-  border-radius: 20px; /* Match the export buttons' border-radius */
+  border-radius: 20px !important; /* Ensure rounded corners */
   cursor: pointer;
   font-size: 14px; /* Reduce font size */
 }
@@ -239,7 +238,7 @@ body.dark-mode .add-student-btn .plus-icon {
   height: auto;
   z-index: 1002;
   box-sizing: border-box;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, screenshot255, 0.2);
   overflow-y: auto;
   animation: fadeIn 0.3s ease-in-out;
   display: block;

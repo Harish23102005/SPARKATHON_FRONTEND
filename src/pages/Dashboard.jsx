@@ -551,7 +551,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="dashboard-filters">
+      <div className="filters">
         <input
           type="text"
           placeholder="Filter by Student ID"
@@ -632,7 +632,30 @@ const Dashboard = () => {
                               options={{
                                 responsive: true,
                                 maintainAspectRatio: false,
-                                plugins: { legend: { position: "top" }, title: { display: true, text: "Historical Performance" } },
+                                plugins: {
+                                  legend: { position: "top" },
+                                  title: { display: true, text: "Historical Performance" },
+                                },
+                                scales: {
+                                  x: {
+                                    ticks: {
+                                      autoSkip: true, // Automatically skip labels to fit
+                                      maxRotation: 0, // Prevent label rotation
+                                      minRotation: 0,
+                                      font: {
+                                        size: 10, // Reduce font size to fit more labels
+                                      },
+                                    },
+                                  },
+                                  y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                      font: {
+                                        size: 10, // Reduce font size
+                                      },
+                                    },
+                                  },
+                                },
                               }}
                             />
                           ) : (
@@ -652,7 +675,30 @@ const Dashboard = () => {
                               options={{
                                 responsive: true,
                                 maintainAspectRatio: false,
-                                plugins: { legend: { position: "top" }, title: { display: true, text: "CO Attainment" } },
+                                plugins: {
+                                  legend: { position: "top" },
+                                  title: { display: true, text: "CO Attainment" },
+                                },
+                                scales: {
+                                  x: {
+                                    ticks: {
+                                      autoSkip: true, // Automatically skip labels to fit
+                                      maxRotation: 0, // Prevent label rotation
+                                      minRotation: 0,
+                                      font: {
+                                        size: 10, // Reduce font size to fit more labels
+                                      },
+                                    },
+                                  },
+                                  y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                      font: {
+                                        size: 10, // Reduce font size
+                                      },
+                                    },
+                                  },
+                                },
                               }}
                             />
                           ) : (

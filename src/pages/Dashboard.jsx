@@ -482,6 +482,7 @@ const Dashboard = () => {
           backgroundColor: "rgba(40, 167, 69, 0.6)",
           borderColor: "rgba(40, 167, 69, 1)",
           borderWidth: 1,
+          barThickness: 20, // Reduce bar thickness to fit within the card
         },
       ],
     };
@@ -497,6 +498,7 @@ const Dashboard = () => {
           backgroundColor: "rgba(40, 167, 69, 0.6)",
           borderColor: "rgba(40, 167, 69, 1)",
           borderWidth: 1,
+          barThickness: 20, // Reduce bar thickness to fit within the card
         },
         {
           label: "Exam (%)",
@@ -504,6 +506,7 @@ const Dashboard = () => {
           backgroundColor: "rgba(255, 99, 132, 0.6)",
           borderColor: "rgba(255, 99, 132, 1)",
           borderWidth: 1,
+          barThickness: 20, // Reduce bar thickness to fit within the card
         },
       ],
     };
@@ -632,18 +635,40 @@ const Dashboard = () => {
                               options={{
                                 responsive: true,
                                 maintainAspectRatio: false,
+                                layout: {
+                                  padding: {
+                                    left: 5, // Reduce padding to fit within the card
+                                    right: 5,
+                                    top: 5,
+                                    bottom: 5,
+                                  },
+                                },
                                 plugins: {
-                                  legend: { position: "top" },
-                                  title: { display: true, text: "Historical Performance" },
+                                  legend: {
+                                    position: "top",
+                                    labels: {
+                                      font: {
+                                        size: 8, // Reduce legend font size
+                                      },
+                                    },
+                                  },
+                                  title: {
+                                    display: true,
+                                    text: "Historical Performance",
+                                    font: {
+                                      size: 12, // Reduce title font size
+                                    },
+                                  },
                                 },
                                 scales: {
                                   x: {
                                     ticks: {
-                                      autoSkip: true, // Automatically skip labels to fit
+                                      autoSkip: true, // Skip labels to fit
+                                      maxTicksLimit: 3, // Limit the number of ticks
                                       maxRotation: 0, // Prevent label rotation
                                       minRotation: 0,
                                       font: {
-                                        size: 10, // Reduce font size to fit more labels
+                                        size: 8, // Further reduce font size
                                       },
                                     },
                                   },
@@ -651,8 +676,9 @@ const Dashboard = () => {
                                     beginAtZero: true,
                                     ticks: {
                                       font: {
-                                        size: 10, // Reduce font size
+                                        size: 8, // Further reduce font size
                                       },
+                                      stepSize: 50, // Reduce the number of y-axis ticks
                                     },
                                   },
                                 },
@@ -675,18 +701,40 @@ const Dashboard = () => {
                               options={{
                                 responsive: true,
                                 maintainAspectRatio: false,
+                                layout: {
+                                  padding: {
+                                    left: 5, // Reduce padding to fit within the card
+                                    right: 5,
+                                    top: 5,
+                                    bottom: 5,
+                                  },
+                                },
                                 plugins: {
-                                  legend: { position: "top" },
-                                  title: { display: true, text: "CO Attainment" },
+                                  legend: {
+                                    position: "top",
+                                    labels: {
+                                      font: {
+                                        size: 8, // Reduce legend font size
+                                      },
+                                    },
+                                  },
+                                  title: {
+                                    display: true,
+                                    text: "CO Attainment",
+                                    font: {
+                                      size: 12, // Reduce title font size
+                                    },
+                                  },
                                 },
                                 scales: {
                                   x: {
                                     ticks: {
-                                      autoSkip: true, // Automatically skip labels to fit
+                                      autoSkip: true, // Skip labels to fit
+                                      maxTicksLimit: 3, // Limit the number of ticks
                                       maxRotation: 0, // Prevent label rotation
                                       minRotation: 0,
                                       font: {
-                                        size: 10, // Reduce font size to fit more labels
+                                        size: 8, // Further reduce font size
                                       },
                                     },
                                   },
@@ -694,8 +742,9 @@ const Dashboard = () => {
                                     beginAtZero: true,
                                     ticks: {
                                       font: {
-                                        size: 10, // Reduce font size
+                                        size: 8, // Further reduce font size
                                       },
+                                      stepSize: 50, // Reduce the number of y-axis ticks
                                     },
                                   },
                                 },

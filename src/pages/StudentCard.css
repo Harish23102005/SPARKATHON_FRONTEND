@@ -38,7 +38,7 @@ body.dark-mode .card-inner {
   justify-content: space-between;
   align-items: flex-start;
   border-radius: 10px;
-  padding: 15px;
+  padding: 10px; /* Reduced padding to give more space for the chart */
   box-sizing: border-box;
 }
 
@@ -56,6 +56,7 @@ body.dark-mode .card-front {
   justify-content: flex-start;
   align-items: center;
   overflow-y: auto;
+  overflow-x: hidden; /* Ensure no horizontal scrolling */
 }
 
 body.dark-mode .card-back {
@@ -177,6 +178,13 @@ body.dark-mode .details-btn:hover {
   min-height: 120px; /* Ensure minimum height */
   position: relative;
   overflow-x: hidden; /* Disable horizontal scrolling */
+}
+
+/* Ensure the chart canvas fits within the container */
+.chart-container canvas {
+  max-width: 100% !important; /* Force the canvas to fit within the container */
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .card-back h3 {

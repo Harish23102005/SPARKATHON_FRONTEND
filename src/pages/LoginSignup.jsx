@@ -22,8 +22,8 @@ const LoginSignup = ({ isSignup, setIsSignup }) => {
     e.preventDefault();
     try {
       const url = isSignup
-        ? "http://localhost:5000/api/signup"
-        : "http://localhost:5000/api/login";
+        ? "https://student-performance-tracker-backend.onrender.com/api/signup"
+        : "https://student-performance-tracker-backend.onrender.com/api/login";
       const res = await axios.post(url, formData);
       if (res.data.token) {
         localStorage.setItem("token", res.data.token);

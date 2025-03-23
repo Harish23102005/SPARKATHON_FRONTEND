@@ -21,7 +21,8 @@ const LoginSignup = ({ isSignup, setIsSignup }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000"; // Fallback for local development
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      console.log("Base URL being used:", baseUrl); // Debug log
       const url = isSignup ? `${baseUrl}/api/signup` : `${baseUrl}/api/login`;
       const res = await axios.post(url, formData);
       if (res.data.token) {

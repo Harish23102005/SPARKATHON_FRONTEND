@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import "./SemesterResultsUpload.css";
 
 const SemesterResultsUpload = () => {
+  const navigate = useNavigate();
   const [internalFile, setInternalFile] = useState(null);
   const [assignmentFile, setAssignmentFile] = useState(null);
   const [classTestFile, setClassTestFile] = useState(null);
@@ -23,7 +25,7 @@ const SemesterResultsUpload = () => {
     return "0.00";
   };
 
-  // Function to map percentage to CO level (1 to 3) - must match server.js logic
+  // Function to map percentage to CO level (1 to 3) - must match backend logic
   const mapPercentageToLevel = (percentage) => {
     if (percentage >= 70) return 3; // Level 3 for ≥ 70%
     if (percentage >= 60) return 2; // Level 2 for ≥ 60%
@@ -46,22 +48,28 @@ const SemesterResultsUpload = () => {
     formData.append("classTest", classTestFile);
     formData.append("semester", semesterFile);
 
+    const token = localStorage.getItem("token");
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
     setLoading(true);
     setError(null);
     setResults(null);
 
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/upload-semester-results",
+        `${baseUrl}/api/students/upload-semester-results`,
         formData,
         {
           headers: {
             "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
           },
+          timeout: 60000, // 60 seconds timeout
         }
       );
       setResults(response.data);
     } catch (err) {
+      console.error("Error uploading semester results:", err);
       setError(err.response?.data?.error || "An error occurred while uploading.");
     } finally {
       setLoading(false);
@@ -75,7 +83,7 @@ const SemesterResultsUpload = () => {
   return (
     <div className="semester-results-upload-container">
       <div className="semester-header">
-        <button className="back-btn" onClick={() => window.history.back()}>
+        <button className="back-btn" onClick={() => navigate("/dashboard")}>
           ← Back to Dashboard
         </button>
         <h2>UPLOAD SEMESTER RESULTS</h2>
@@ -91,6 +99,7 @@ const SemesterResultsUpload = () => {
             type="file"
             accept=".xlsx"
             onChange={(e) => handleFileChange(e, setInternalFile)}
+            disabled={loading}
           />
         </div>
         <div className="file-input">
@@ -99,6 +108,7 @@ const SemesterResultsUpload = () => {
             type="file"
             accept=".xlsx"
             onChange={(e) => handleFileChange(e, setAssignmentFile)}
+            disabled={loading}
           />
         </div>
         <div className="file-input">
@@ -107,6 +117,7 @@ const SemesterResultsUpload = () => {
             type="file"
             accept=".xlsx"
             onChange={(e) => handleFileChange(e, setClassTestFile)}
+            disabled={loading}
           />
         </div>
         <div className="file-input">
@@ -115,6 +126,7 @@ const SemesterResultsUpload = () => {
             type="file"
             accept=".xlsx"
             onChange={(e) => handleFileChange(e, setSemesterFile)}
+            disabled={loading}
           />
         </div>
         <button className="upload-btn" onClick={handleUpload} disabled={loading}>
@@ -128,7 +140,7 @@ const SemesterResultsUpload = () => {
         </div>
       )}
 
-      {results ? (
+      {results && (
         <div className="results-section">
           {/* Attainment Procedure Section */}
           <div className="attainment-procedure">
@@ -674,15 +686,6 @@ const SemesterResultsUpload = () => {
                 <td>{formatValue(results.coAttainment?.overall?.CO6)}</td>
               </tr>
               <tr className="highlight">
-                <td>FINAL CO Attainment</td>
-                <td>{formatValue(results.coAttainment?.overall?.CO1)}</td>
-                <td>{formatValue(results.coAttainment?.overall?.CO2)}</td>
-                <td>{formatValue(results.coAttainment?.overall?.CO3)}</td>
-                <td>{formatValue(results.coAttainment?.overall?.CO4)}</td>
-                <td>{formatValue(results.coAttainment?.overall?.CO5)}</td>
-                <td>{formatValue(results.coAttainment?.overall?.CO6)}</td>
-              </tr>
-              <tr>
                 <td>IS CO-Target Attained?</td>
                 <td className={results.targetAttained?.CO1 ? "yes" : "no"}>
                   {results.targetAttained?.CO1 ? "YES" : "NO"}
@@ -703,24 +706,9 @@ const SemesterResultsUpload = () => {
                   {results.targetAttained?.CO6 ? "YES" : "NO"}
                 </td>
               </tr>
-              <tr>
-                <td>Target Attainment Levels</td>
-                <td>{results.parameters?.targetAttainmentLevel}</td>
-                <td>{results.parameters?.targetAttainmentLevel}</td>
-                <td>{results.parameters?.targetAttainmentLevel}</td>
-                <td>{results.parameters?.targetAttainmentLevel}</td>
-                <td>{results.parameters?.targetAttainmentLevel}</td>
-                <td>{results.parameters?.targetAttainmentLevel}</td>
-              </tr>
             </tbody>
           </table>
         </div>
-      ) : (
-        !loading && !error && (
-          <div className="no-results">
-            <p>No results to display. Please upload the files and click "Upload Results".</p>
-          </div>
-        )
       )}
     </div>
   );

@@ -1,11 +1,14 @@
 .university-performance-container {
   padding: 20px;
+  min-height: 100vh; /* Ensure the container takes at least the full viewport height */
+  overflow-y: auto; /* Allow scrolling if content overflows */
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
 }
 
 .nav-btn {
@@ -19,6 +22,11 @@
 
 .upload-section {
   margin: 20px 0;
+}
+
+.upload-section input[type="file"] {
+  padding: 5px;
+  margin-bottom: 10px;
 }
 
 .results-section {
@@ -53,5 +61,21 @@
 }
 
 .chart-container {
-  height: 400px;
+  width: 600px; /* Fixed width to match the "By Year" view */
+  height: 400px; /* Fixed height to maintain consistency */
+  margin: 0 auto; /* Center the chart */
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .chart-container {
+    width: 100%; /* Allow the chart to take full width on smaller screens */
+    max-width: 600px; /* Ensure it doesn't exceed the fixed width */
+  }
+
+  .view-toggle button {
+    padding: 8px 15px;
+    margin-right: 5px;
+    font-size: 14px;
+  }
 }

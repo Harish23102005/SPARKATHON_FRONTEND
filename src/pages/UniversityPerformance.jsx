@@ -153,9 +153,23 @@ const UniversityPerformance = () => {
 
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false, // Allow the chart to fill the container without maintaining aspect ratio
     plugins: {
       legend: { position: "top" },
       title: { display: true, text: `CO Performance by ${selectedView.charAt(0).toUpperCase() + selectedView.slice(1)}` },
+    },
+    scales: {
+      x: {
+        ticks: {
+          autoSkip: true, // Automatically skip labels to prevent overcrowding
+          maxRotation: 45, // Rotate labels if needed
+          minRotation: 0,
+        },
+      },
+      y: {
+        beginAtZero: true,
+        max: 100, // Cap the y-axis at 100%
+      },
     },
   };
 

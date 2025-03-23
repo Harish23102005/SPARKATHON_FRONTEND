@@ -31,7 +31,7 @@ const Dashboard = () => {
     totalInternal: "",
     totalExam: "",
     coMapping: [{ coId: "CO1", internal: "", exam: "", totalInternal: "", totalExam: "" }],
-    coTargets: [{ coId: "CO1", target: 70 }],
+    coTargets: [{ coId: "CO1", target: "70" }],
   });
   const [editingStudentId, setEditingStudentId] = useState(null);
   const [coPoData, setCoPoData] = useState({});
@@ -53,7 +53,8 @@ const Dashboard = () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-      const response = await axios.get("http://localhost:5000/api/students", {
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const response = await axios.get(`${baseUrl}/api/students`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setStudents(response.data);
@@ -75,7 +76,8 @@ const Dashboard = () => {
   const fetchCoPoData = async (studentId, retryCount = 0) => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(`http://localhost:5000/api/students/calculate-co-po/${studentId}`, {
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const response = await axios.get(`${baseUrl}/api/students/calculate-co-po/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCoPoData((prev) => ({ ...prev, [studentId]: response.data }));
@@ -219,7 +221,7 @@ const Dashboard = () => {
       totalInternal: "",
       totalExam: "",
       coMapping: [{ coId: "CO1", internal: "", exam: "", totalInternal: "", totalExam: "" }],
-      coTargets: [{ coId: "CO1", target: 70 }],
+      coTargets: [{ coId: "CO1", target: "70" }],
     });
     setEditingStudentId(null);
     setIsModalOpen(true);
@@ -237,7 +239,7 @@ const Dashboard = () => {
       totalInternal: "",
       totalExam: "",
       coMapping: student.marks[0]?.coMapping || [{ coId: "CO1", internal: "", exam: "", totalInternal: "", totalExam: "" }],
-      coTargets: student.courseOutcomes || [{ coId: "CO1", target: 70 }],
+      coTargets: student.courseOutcomes || [{ coId: "CO1", target: "70" }],
     });
     setEditingStudentId(student.studentId);
     setIsModalOpen(true);
@@ -248,7 +250,8 @@ const Dashboard = () => {
     if (!window.confirm("Are you sure you want to delete this student?")) return;
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(`http://localhost:5000/api/students/${studentId}`, {
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      await axios.delete(`${baseUrl}/api/students/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setStudents(students.filter((student) => student.studentId !== studentId));
@@ -260,7 +263,7 @@ const Dashboard = () => {
   };
 
   const handleInputChange = (e, index = null, field = null) => {
-    if (index !== null && field) {
+    if (index !== null && field && field !== "target") {
       const updatedMapping = [...formData.coMapping];
       updatedMapping[index][field] = e.target.value;
       setFormData({ ...formData, coMapping: updatedMapping });
@@ -274,10 +277,17 @@ const Dashboard = () => {
   };
 
   const addCoMapping = () => {
+    const newCoId = `CO${formData.coMapping.length + 1}`;
     setFormData({
       ...formData,
-      coMapping: [...formData.coMapping, { coId: `CO${formData.coMapping.length + 1}`, internal: "", exam: "", totalInternal: "", totalExam: "" }],
-      coTargets: [...formData.coTargets, { coId: `CO${formData.coTargets.length + 1}`, target: 70 }],
+      coMapping: [
+        ...formData.coMapping,
+        { coId: newCoId, internal: "", exam: "", totalInternal: "", totalExam: "" },
+      ],
+      coTargets: [
+        ...formData.coTargets,
+        { coId: newCoId, target: "70" },
+      ],
     });
   };
 
@@ -298,6 +308,7 @@ const Dashboard = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
     try {
       setLoading(true);
       if (modalType === "add") {
@@ -308,20 +319,23 @@ const Dashboard = () => {
           marks: [
             {
               year: formData.year,
-              internal: parseFloat(formData.internalMarks),
-              exam: parseFloat(formData.examMarks),
-              totalInternal: parseFloat(formData.totalInternal),
-              totalExam: parseFloat(formData.totalExam),
+              internal: parseFloat(formData.internalMarks) || 0,
+              exam: parseFloat(formData.examMarks) || 0,
+              totalInternal: parseFloat(formData.totalInternal) || 0,
+              totalExam: parseFloat(formData.totalExam) || 0,
               coMapping: formData.coMapping.map((co) => ({
                 coId: co.coId,
-                internal: parseFloat(co.internal),
-                exam: parseFloat(co.exam),
-                totalInternal: parseFloat(co.totalInternal),
-                totalExam: parseFloat(co.totalExam),
+                internal: parseFloat(co.internal) || 0,
+                exam: parseFloat(co.exam) || 0,
+                totalInternal: parseFloat(co.totalInternal) || 0,
+                totalExam: parseFloat(co.totalExam) || 0,
               })),
             },
           ],
-          courseOutcomes: formData.coTargets,
+          courseOutcomes: formData.coTargets.map((target) => ({
+            coId: target.coId,
+            target: parseFloat(target.target) || 70,
+          })),
           coPoMapping: formData.coTargets.map((co) => ({
             coId: co.coId,
             poMapping: [
@@ -330,35 +344,44 @@ const Dashboard = () => {
             ],
           })),
         };
-        await axios.post("http://localhost:5000/api/students", newStudent, {
+        console.log("Submitting new student:", newStudent);
+        await axios.post(`${baseUrl}/api/students`, newStudent, {
           headers: { Authorization: `Bearer ${token}` },
         });
         alert("Student added successfully!");
       } else if (modalType === "update") {
         const updatedMarks = {
           year: formData.year,
-          internal: parseFloat(formData.internalMarks),
-          exam: parseFloat(formData.examMarks),
-          totalInternal: parseFloat(formData.totalInternal),
-          totalExam: parseFloat(formData.totalExam),
+          internal: parseFloat(formData.internalMarks) || 0,
+          exam: parseFloat(formData.examMarks) || 0,
+          totalInternal: parseFloat(formData.totalInternal) || 0,
+          totalExam: parseFloat(formData.totalExam) || 0,
           coMapping: formData.coMapping.map((co) => ({
             coId: co.coId,
-            internal: parseFloat(co.internal),
-            exam: parseFloat(co.exam),
-            totalInternal: parseFloat(co.totalInternal),
-            totalExam: parseFloat(co.totalExam),
+            internal: parseFloat(co.internal) || 0,
+            exam: parseFloat(co.exam) || 0,
+            totalInternal: parseFloat(co.totalInternal) || 0,
+            totalExam: parseFloat(co.totalExam) || 0,
           })),
         };
         const response = await axios.put(
-          `http://localhost:5000/api/students/${editingStudentId}`,
-          { marks: updatedMarks, courseOutcomes: formData.coTargets },
+          `${baseUrl}/api/students/${editingStudentId}`,
+          { marks: updatedMarks, courseOutcomes: formData.coTargets.map((target) => ({
+            coId: target.coId,
+            target: parseFloat(target.target) || 70,
+          })) },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        const updatedCoPoData = await axios.get(`http://localhost:5000/api/students/calculate-co-po/${editingStudentId}`);
+        const updatedCoPoData = await axios.get(`${baseUrl}/api/students/calculate-co-po/${editingStudentId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const adjustedTargets = adjustTargetsAutomatically(formData.coTargets, updatedCoPoData.data.coSummary);
         await axios.put(
-          `http://localhost:5000/api/students/${editingStudentId}`,
-          { courseOutcomes: adjustedTargets },
+          `${baseUrl}/api/students/${editingStudentId}`,
+          { courseOutcomes: adjustedTargets.map((target) => ({
+            coId: target.coId,
+            target: parseFloat(target.target) || 70,
+          })) },
           { headers: { Authorization: `Bearer ${token}` } }
         );
         alert("Marks updated and targets adjusted successfully!");
@@ -629,7 +652,7 @@ const Dashboard = () => {
                 required
               />
               <input
-                type="text"
+                type="number"
                 name="internalMarks"
                 placeholder="Internal Marks"
                 value={formData.internalMarks}
@@ -637,7 +660,7 @@ const Dashboard = () => {
                 required
               />
               <input
-                type="text"
+                type="number"
                 name="totalInternal"
                 placeholder="Total Internal Marks"
                 value={formData.totalInternal}
@@ -645,7 +668,7 @@ const Dashboard = () => {
                 required
               />
               <input
-                type="text"
+                type="number"
                 name="examMarks"
                 placeholder="Exam Marks"
                 value={formData.examMarks}
@@ -653,7 +676,7 @@ const Dashboard = () => {
                 required
               />
               <input
-                type="text"
+                type="number"
                 name="totalExam"
                 placeholder="Total Exam Marks"
                 value={formData.totalExam}
@@ -664,28 +687,28 @@ const Dashboard = () => {
               {formData.coMapping.map((co, index) => (
                 <div key={index}>
                   <input
-                    type="text"
+                    type="number"
                     placeholder={`CO${index + 1} Internal Marks`}
                     value={co.internal}
                     onChange={(e) => handleInputChange(e, index, "internal")}
                     required
                   />
                   <input
-                    type="text"
+                    type="number"
                     placeholder={`CO${index + 1} Internal Total`}
                     value={co.totalInternal}
                     onChange={(e) => handleInputChange(e, index, "totalInternal")}
                     required
                   />
                   <input
-                    type="text"
+                    type="number"
                     placeholder={`CO${index + 1} Exam Marks`}
                     value={co.exam}
                     onChange={(e) => handleInputChange(e, index, "exam")}
                     required
                   />
                   <input
-                    type="text"
+                    type="number"
                     placeholder={`CO${index + 1} Exam Total`}
                     value={co.totalExam}
                     onChange={(e) => handleInputChange(e, index, "totalExam")}
@@ -698,7 +721,7 @@ const Dashboard = () => {
               {formData.coTargets.map((co, index) => (
                 <div key={index}>
                   <input
-                    type="text"
+                    type="number"
                     placeholder={`CO${index + 1} Target (%)`}
                     value={co.target}
                     onChange={(e) => handleInputChange(e, index, "target")}

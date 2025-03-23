@@ -38,7 +38,7 @@ body.dark-mode .card-inner {
   justify-content: space-between;
   align-items: flex-start;
   border-radius: 10px;
-  padding: 10px; /* Reduced padding to give more space for the chart */
+  padding: 10px;
   box-sizing: border-box;
 }
 
@@ -56,7 +56,7 @@ body.dark-mode .card-front {
   justify-content: flex-start;
   align-items: center;
   overflow-y: auto;
-  overflow-x: hidden; /* Ensure no horizontal scrolling */
+  overflow-x: hidden;
 }
 
 body.dark-mode .card-back {
@@ -85,7 +85,7 @@ body.dark-mode .student-info {
   color: white;
   border: none;
   padding: 6px 12px;
-  border-radius: 20px; /* Match the export buttons' border-radius */
+  border-radius: 20px;
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -129,7 +129,7 @@ body.dark-mode .add-marks-btn {
 }
 
 .delete-btn:hover {
-  color: #ff4d4d; /* Turn red on hover to indicate deletion */
+  color: #ff4d4d;
   background: rgba(255, 255, 255, 1);
 }
 
@@ -139,7 +139,7 @@ body.dark-mode .delete-btn {
 }
 
 body.dark-mode .delete-btn:hover {
-  color: #ff4d4d; /* Turn red on hover in dark mode */
+  color: #ff4d4d;
   background: rgba(255, 255, 255, 0.2);
 }
 
@@ -174,17 +174,19 @@ body.dark-mode .details-btn:hover {
 /* Chart Container */
 .chart-container {
   width: 100%;
-  height: 120px; /* Increased height to 120px */
-  min-height: 120px; /* Ensure minimum height */
+  height: 120px;
+  min-height: 120px;
   position: relative;
-  overflow-x: hidden; /* Disable horizontal scrolling */
+  overflow-x: hidden;
+  display: block; /* Ensure the container is visible */
 }
 
 /* Ensure the chart canvas fits within the container */
 .chart-container canvas {
-  max-width: 100% !important; /* Force the canvas to fit within the container */
+  max-width: 100% !important;
   width: 100% !important;
   height: 100% !important;
+  display: block !important; /* Ensure the canvas is visible */
 }
 
 .card-back h3 {

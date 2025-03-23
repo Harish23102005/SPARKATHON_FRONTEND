@@ -35,6 +35,7 @@ const Dashboard = () => {
   });
   const [editingStudentId, setEditingStudentId] = useState(null);
   const [coPoData, setCoPoData] = useState({});
+  const [coPoLoading, setCoPoLoading] = useState({}); // Added loading state for CO/PO data
   const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
   const [loading, setLoading] = useState(false);
 
@@ -53,20 +54,24 @@ const Dashboard = () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-      
+
       const baseUrl = process.env.NODE_ENV === "development"
         ? "http://localhost:5000/api"
         : "https://student-performance-tracker-backend.onrender.com/api";
-      
-      // ✅ FIXED: Remove extra `/api`
+
       const response = await axios.get(`${baseUrl}/students`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      setStudents(response.data);
-      response.data.forEach((student) => {
-        fetchCoPoData(student.studentId);
-      });
+      // Filter out students without a valid studentId
+      const validStudents = response.data.filter(student => student.studentId);
+      setStudents(validStudents);
+
+      // Fetch CO/PO data for valid students with a delay to avoid overwhelming the backend
+      for (const student of validStudents) {
+        await fetchCoPoData(student.studentId);
+        await new Promise(resolve => setTimeout(resolve, 100)); // Simple debounce
+      }
     } catch (error) {
       console.error("Error fetching students:", error);
       if (retryCount < 2) {
@@ -77,10 +82,14 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-};
-
+  };
 
   const fetchCoPoData = async (studentId, retryCount = 0) => {
+    if (!studentId) {
+      console.warn("Skipping CO/PO fetch: studentId is undefined");
+      return;
+    }
+    setCoPoLoading((prev) => ({ ...prev, [studentId]: true }));
     try {
       const token = localStorage.getItem("token");
       const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -94,6 +103,8 @@ const Dashboard = () => {
       if (retryCount < 2) {
         setTimeout(() => fetchCoPoData(studentId, retryCount + 1), 1000);
       }
+    } finally {
+      setCoPoLoading((prev) => ({ ...prev, [studentId]: false }));
     }
   };
 
@@ -414,13 +425,16 @@ const Dashboard = () => {
     const data = coPoData[studentId] || { coSummary: [], poSummary: [] };
     console.log(`CO/PO Chart Data for student ${studentId}:`, data);
     return {
-      labels: [...data.coSummary.map((co) => co.coId), ...data.poSummary.map((po) => po.poId)],
+      labels: [
+        ...(data.coSummary?.map((co) => co.coId) || []),
+        ...(data.poSummary?.map((po) => po.poId) || []),
+      ],
       datasets: [
         {
           label: "Attainment (%)",
           data: [
-            ...data.coSummary.map((co) => co.avgAttainment || 0),
-            ...data.poSummary.map((po) => po.avgAttainment || 0),
+            ...(data.coSummary?.map((co) => co.avgAttainment || 0) || []),
+            ...(data.poSummary?.map((po) => po.avgAttainment || 0) || []),
           ],
           backgroundColor: "rgba(40, 167, 69, 0.6)",
           borderColor: "rgba(40, 167, 69, 1)",
@@ -587,7 +601,9 @@ const Dashboard = () => {
                         <p>Exam Avg: {threeYearComp.avgExam}% ({threeYearComp.examAboveAvg})</p>
                         <h3>CO/PO Attainment</h3>
                         <div className="chart-container">
-                          {coPoData[student.studentId] && (coPoData[student.studentId].coSummary?.length > 0 || coPoData[student.studentId].poSummary?.length > 0) ? (
+                          {coPoLoading[student.studentId] ? (
+                            <p>Loading CO/PO data...</p>
+                          ) : coPoData[student.studentId] && (coPoData[student.studentId].coSummary?.length > 0 || coPoData[student.studentId].poSummary?.length > 0) ? (
                             <Bar
                               data={coPoChartData(student.studentId)}
                               options={{
@@ -597,7 +613,7 @@ const Dashboard = () => {
                               }}
                             />
                           ) : (
-                            <p>No CO/PO data available.</p>
+                            <p>No CO/PO data available yet.</p>
                           )}
                         </div>
                       </>

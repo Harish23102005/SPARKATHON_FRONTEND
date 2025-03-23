@@ -53,7 +53,7 @@ const Dashboard = () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const baseUrl = "https://student-performance-tracker-backend.onrender.com/api" || "http://localhost:5000";
       const response = await axios.get(`${baseUrl}/api/students`, {
         headers: { Authorization: `Bearer ${token}` },
       });

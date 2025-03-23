@@ -63,12 +63,21 @@ const Dashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const validStudents = response.data.filter(student => student.student_id); // Use student_id from backend
+      // Stricter validation for student_id
+      const validStudents = response.data.filter(student => {
+        const isValid = student.student_id && typeof student.student_id === "string" && student.student_id.trim() !== "";
+        if (!isValid) {
+          console.warn("Invalid student data:", student);
+        }
+        return isValid;
+      });
       setStudents(validStudents);
 
       for (const student of validStudents) {
-        await fetchCoData(student.student_id);
-        await new Promise(resolve => setTimeout(resolve, 100));
+        if (student.student_id) {
+          await fetchCoData(student.student_id);
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
     } catch (error) {
       console.error("Error fetching students:", error);
@@ -83,8 +92,10 @@ const Dashboard = () => {
   };
 
   const fetchCoData = async (studentId, retryCount = 0) => {
-    if (!studentId) {
-      console.warn("Skipping CO fetch: studentId is undefined");
+    if (!studentId || typeof studentId !== "string" || studentId.trim() === "") {
+      console.warn("Skipping CO fetch: studentId is invalid", studentId);
+      setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [] } }));
+      setCoLoading((prev) => ({ ...prev, [studentId]: false }));
       return;
     }
     setCoLoading((prev) => ({ ...prev, [studentId]: true }));
@@ -98,6 +109,7 @@ const Dashboard = () => {
       console.log(`CO data for student ${studentId}:`, response.data);
     } catch (error) {
       console.error(`Error fetching CO data for student ${studentId}:`, error);
+      setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [] } }));
       if (retryCount < 2) {
         setTimeout(() => fetchCoData(studentId, retryCount + 1), 1000);
       }
@@ -115,7 +127,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       for (const student of students) {
-        if (!coData[student.student_id]) {
+        if (!coData[student.student_id] && student.student_id) {
           await fetchCoData(student.student_id);
         }
       }
@@ -157,7 +169,7 @@ const Dashboard = () => {
       }
       setLoading(true);
       for (const student of students) {
-        if (!coData[student.student_id]) {
+        if (!coData[student.student_id] && student.student_id) {
           await fetchCoData(student.student_id);
         }
       }
@@ -197,6 +209,10 @@ const Dashboard = () => {
 
   const handleCardClick = (e, studentId) => {
     if (e.target.closest(".add-marks-btn") || e.target.closest(".delete-btn") || e.target.closest(".details-btn")) return;
+    if (!studentId || typeof studentId !== "string" || studentId.trim() === "") {
+      console.warn("Cannot fetch CO data: studentId is invalid", studentId);
+      return;
+    }
     setFlippedCards((prev) => ({
       ...prev,
       [studentId]: !prev[studentId],
@@ -205,6 +221,7 @@ const Dashboard = () => {
   };
 
   const toggleDetails = (studentId) => {
+    if (!studentId) return;
     setShowDetails((prev) => ({
       ...prev,
       [studentId]: !prev[studentId],
@@ -249,6 +266,7 @@ const Dashboard = () => {
 
   const handleDelete = async (studentId, e) => {
     e.stopPropagation();
+    if (!studentId) return;
     if (!window.confirm("Are you sure you want to delete this student?")) return;
     try {
       const token = localStorage.getItem("token");
@@ -315,7 +333,7 @@ const Dashboard = () => {
       setLoading(true);
       if (modalType === "add") {
         const newStudent = {
-          studentId: formData.id, // Matches frontend expectation
+          studentId: formData.id,
           name: formData.name,
           department: formData.department,
           marks: [
@@ -404,7 +422,7 @@ const Dashboard = () => {
   );
 
   const coChartData = (studentId) => {
-    const data = coData[studentId] || {};
+    const data = coData[studentId] || { coSummary: [] };
     const coSummary = Array.isArray(data.coSummary) ? data.coSummary : [];
     console.log(`CO Chart Data for student ${studentId}:`, coSummary);
     return {
@@ -580,7 +598,7 @@ const Dashboard = () => {
                         <div className="chart-container">
                           {coLoading[student.student_id] ? (
                             <p>Loading CO data...</p>
-                          ) : coData[student.student_id]?.coSummary?.length > 0 ? (
+                          ) : coData[student.student_id] && coData[student.student_id].coSummary?.length > 0 ? (
                             <Bar
                               data={coChartData(student.student_id)}
                               options={{

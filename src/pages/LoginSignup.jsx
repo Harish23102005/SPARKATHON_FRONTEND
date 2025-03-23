@@ -32,7 +32,13 @@ const LoginSignup = ({ isSignup, setIsSignup }) => {
         alert(res.data.error || "Invalid credentials!");
       }
     } catch (error) {
-      alert(error.response?.data?.error || "Something went wrong!");
+      if (error.response) {
+        alert(error.response.data.error || "An error occurred. Please try again.");
+      } else if (error.request) {
+        alert("Failed to connect to the server. Please try again in a few seconds.");
+      } else {
+        alert("An unexpected error occurred. Please try again.");
+      }
     }
   };
   // Create an array of spans for the background grid

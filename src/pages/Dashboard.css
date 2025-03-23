@@ -87,7 +87,7 @@ body.dark-mode .dashboard-header h2 {
   background-color: #28a745;
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 20px; /* Match the export buttons' border-radius */
   cursor: pointer;
   font-size: 14px; /* Reduce font size */
 }
@@ -156,7 +156,10 @@ body.dark-mode .theme-toggle svg {
 /* Student Cards - Grid Layout */
 .student-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(250px, 1fr)
+  ); /* Reduce card width to 250px */
   gap: 20px;
   justify-content: center;
   padding: 10px;
@@ -164,50 +167,14 @@ body.dark-mode .theme-toggle svg {
   max-width: 95vw;
   margin: 0 auto;
   overflow-y: auto; /* Enable vertical scrolling */
-  max-height: calc(
-    100vh - 300px
-  ); /* Adjust height to fit within viewport, accounting for header, nav, and filters */
+  overflow-x: hidden; /* Disable horizontal scrolling */
+  max-height: calc(100vh - 300px); /* Adjust height to fit within viewport */
   box-sizing: border-box;
-}
-
-/* Student Card */
-.student-card {
-  background-color: #fff;
-  padding: 15px;
-  border-radius: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  position: relative;
-}
-
-body.dark-mode .student-card {
-  background-color: #333 !important;
-  color: white !important;
-}
-
-.student-card p {
-  margin: 5px 0;
-}
-
-.student-card button {
-  margin-top: 10px;
-  padding: 5px 10px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.student-card button:first-of-type {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: none;
-  border: none;
-  color: #ccc;
 }
 
 /* Add Student Button - Match Student Card Styling */
 .add-student-btn {
-  width: 300px;
+  width: 250px; /* Match the new card width */
   height: 250px;
   background: white;
   border: none;

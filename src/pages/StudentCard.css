@@ -1,5 +1,5 @@
 .student-card {
-  width: 300px;
+  width: 250px; /* Match the new grid column width */
   height: 250px;
   perspective: 1000px;
   cursor: pointer;
@@ -84,7 +84,7 @@ body.dark-mode .student-info {
   color: white;
   border: none;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 20px; /* Match the export buttons' border-radius */
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -128,7 +128,7 @@ body.dark-mode .add-marks-btn {
 }
 
 .delete-btn:hover {
-  color: #ff4d4d;
+  color: #ff4d4d; /* Turn red on hover to indicate deletion */
   background: rgba(255, 255, 255, 1);
 }
 
@@ -138,7 +138,7 @@ body.dark-mode .delete-btn {
 }
 
 body.dark-mode .delete-btn:hover {
-  color: #ff4d4d;
+  color: #ff4d4d; /* Turn red on hover in dark mode */
   background: rgba(255, 255, 255, 0.2);
 }
 
@@ -173,8 +173,8 @@ body.dark-mode .details-btn:hover {
 /* Chart Container */
 .chart-container {
   width: 100%;
-  height: 120px; /* Increased height to ensure visibility */
-  min-height: 120px; /* Ensure minimum height */
+  height: 100px; /* Reduced height to make the graph more compact */
+  min-height: 100px; /* Ensure minimum height */
   position: relative;
 }
 

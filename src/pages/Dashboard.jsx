@@ -1,0 +1,720 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { FaMoon, FaSun, FaFileExcel, FaFilePdf, FaPlus, FaTimes, FaTrash, FaEye } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { Bar } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from "chart.js";
+import "./Dashboard.css";
+import "./StudentCard.css";
+
+// Register Chart.js components
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const [students, setStudents] = useState([]);
+  const [darkMode, setDarkMode] = useState(false);
+  const [flippedCards, setFlippedCards] = useState({});
+  const [showDetails, setShowDetails] = useState({});
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalType, setModalType] = useState("add");
+  const [formData, setFormData] = useState({
+    id: "",
+    name: "",
+    department: "",
+    year: new Date().getFullYear().toString(),
+    internalMarks: "",
+    examMarks: "",
+    totalInternal: "",
+    totalExam: "",
+    coMapping: [{ coId: "CO1", internal: "", exam: "", totalInternal: "", totalExam: "" }],
+    coTargets: [{ coId: "CO1", target: 70 }],
+  });
+  const [editingStudentId, setEditingStudentId] = useState(null);
+  const [coPoData, setCoPoData] = useState({});
+  const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Unauthorized! Please log in first.");
+      navigate("/login");
+    } else {
+      fetchStudents();
+    }
+  }, [navigate]);
+
+  const fetchStudents = async (retryCount = 0) => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      const response = await axios.get("http://localhost:5000/api/students", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setStudents(response.data);
+      response.data.forEach((student) => {
+        fetchCoPoData(student.studentId);
+      });
+    } catch (error) {
+      console.error("Error fetching students:", error);
+      if (retryCount < 2) {
+        setTimeout(() => fetchStudents(retryCount + 1), 1000);
+      } else {
+        alert(error.response?.data?.error || "Failed to fetch students after retries.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCoPoData = async (studentId, retryCount = 0) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`http://localhost:5000/api/students/calculate-co-po/${studentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCoPoData((prev) => ({ ...prev, [studentId]: response.data }));
+      console.log(`CO/PO data for student ${studentId}:`, response.data);
+    } catch (error) {
+      console.error(`Error fetching CO/PO data for student ${studentId}:`, error);
+      if (retryCount < 2) {
+        setTimeout(() => fetchCoPoData(studentId, retryCount + 1), 1000);
+      }
+    }
+  };
+
+  const toggleDarkMode = () => {
+    setDarkMode((prev) => !prev);
+    document.body.classList.toggle("dark-mode");
+  };
+
+  const exportToExcel = async () => {
+    setLoading(true);
+    try {
+      for (const student of students) {
+        if (!coPoData[student.studentId]) {
+          await fetchCoPoData(student.studentId);
+        }
+      }
+
+      const groupedByDept = students.reduce((acc, student) => {
+        acc[student.department] = acc[student.department] || [];
+        acc[student.department].push(student);
+        return acc;
+      }, {});
+      const wb = XLSX.utils.book_new();
+      Object.entries(groupedByDept).forEach(([dept, deptStudents]) => {
+        const ws = XLSX.utils.json_to_sheet(
+          deptStudents.map((student) => {
+            const row = {};
+            row.studentId = student.studentId;
+            row.name = student.name;
+            row.department = student.department;
+            row.average = student.average;
+            row.coAttainment = coPoData[student.studentId]?.coSummary
+              ?.map((co) => `${co.coId}: ${co.avgAttainment.toFixed(2)}% (Level ${assignCOLevel(co.avgAttainment)})`)
+              .join(", ") || "N/A";
+            row.poAttainment = coPoData[student.studentId]?.poSummary
+              ?.map((po) => `${po.poId}: ${po.avgAttainment.toFixed(2)}%`)
+              .join(", ") || "N/A";
+            return row;
+          })
+        );
+        XLSX.utils.book_append_sheet(wb, ws, dept.slice(0, 31));
+      });
+      XLSX.writeFile(wb, "StudentPerformance.xlsx");
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      alert("Failed to export to Excel.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportToPDF = async () => {
+    try {
+      if (!students.length) {
+        alert("No student data available to export.");
+        return;
+      }
+      setLoading(true);
+      for (const student of students) {
+        if (!coPoData[student.studentId]) {
+          await fetchCoPoData(student.studentId);
+        }
+      }
+
+      const doc = new jsPDF();
+      doc.text("Student Performance Report", 10, 10);
+      const groupedByDept = students.reduce((acc, student) => {
+        acc[student.department] = acc[student.department] || [];
+        acc[student.department].push(student);
+        return acc;
+      }, {});
+      let yOffset = 20;
+      Object.entries(groupedByDept).forEach(([dept, deptStudents]) => {
+        doc.text(`Department: ${dept}`, 10, yOffset);
+        yOffset += 10;
+        const head = [["studentId", "name", "department", "average", "coAttainment", "poAttainment"]];
+        const body = deptStudents.map((student) => {
+          const row = [];
+          row.push(student.studentId);
+          row.push(student.name);
+          row.push(student.department);
+          row.push(student.average);
+          row.push(
+            coPoData[student.studentId]?.coSummary
+              ?.map((co) => `${co.coId}: ${co.avgAttainment.toFixed(2)}% (Level ${assignCOLevel(co.avgAttainment)})`)
+              .join(", ") || "N/A"
+          );
+          row.push(
+            coPoData[student.studentId]?.poSummary
+              ?.map((po) => `${po.poId}: ${po.avgAttainment.toFixed(2)}%`)
+              .join(", ") || "N/A"
+          );
+          return row;
+        });
+        autoTable(doc, { head, body, startY: yOffset });
+        yOffset = doc.lastAutoTable.finalY + 10;
+      });
+      doc.save("StudentPerformance.pdf");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert(`Failed to generate PDF: ${error.message}.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCardClick = (e, studentId) => {
+    if (e.target.closest(".add-marks-btn") || e.target.closest(".delete-btn") || e.target.closest(".details-btn")) return;
+    setFlippedCards((prev) => ({
+      ...prev,
+      [studentId]: !prev[studentId],
+    }));
+    fetchCoPoData(studentId);
+  };
+
+  const toggleDetails = (studentId) => {
+    setShowDetails((prev) => ({
+      ...prev,
+      [studentId]: !prev[studentId],
+    }));
+  };
+
+  const openAddStudentModal = (e) => {
+    setModalType("add");
+    setFormData({
+      id: "",
+      name: "",
+      department: "",
+      year: new Date().getFullYear().toString(),
+      internalMarks: "",
+      examMarks: "",
+      totalInternal: "",
+      totalExam: "",
+      coMapping: [{ coId: "CO1", internal: "", exam: "", totalInternal: "", totalExam: "" }],
+      coTargets: [{ coId: "CO1", target: 70 }],
+    });
+    setEditingStudentId(null);
+    setIsModalOpen(true);
+  };
+
+  const openUpdateMarksModal = (student, e) => {
+    setModalType("update");
+    setFormData({
+      id: student.studentId,
+      name: student.name,
+      department: student.department,
+      year: new Date().getFullYear().toString(),
+      internalMarks: "",
+      examMarks: "",
+      totalInternal: "",
+      totalExam: "",
+      coMapping: student.marks[0]?.coMapping || [{ coId: "CO1", internal: "", exam: "", totalInternal: "", totalExam: "" }],
+      coTargets: student.courseOutcomes || [{ coId: "CO1", target: 70 }],
+    });
+    setEditingStudentId(student.studentId);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (studentId, e) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this student?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`http://localhost:5000/api/students/${studentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setStudents(students.filter((student) => student.studentId !== studentId));
+      alert("Student deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting student:", error);
+      alert(error.response?.data?.error || "Failed to delete student.");
+    }
+  };
+
+  const handleInputChange = (e, index = null, field = null) => {
+    if (index !== null && field) {
+      const updatedMapping = [...formData.coMapping];
+      updatedMapping[index][field] = e.target.value;
+      setFormData({ ...formData, coMapping: updatedMapping });
+    } else if (index !== null && field === "target") {
+      const updatedTargets = [...formData.coTargets];
+      updatedTargets[index].target = e.target.value;
+      setFormData({ ...formData, coTargets: updatedTargets });
+    } else {
+      setFormData({ ...formData, [e.target.name]: e.target.value });
+    }
+  };
+
+  const addCoMapping = () => {
+    setFormData({
+      ...formData,
+      coMapping: [...formData.coMapping, { coId: `CO${formData.coMapping.length + 1}`, internal: "", exam: "", totalInternal: "", totalExam: "" }],
+      coTargets: [...formData.coTargets, { coId: `CO${formData.coTargets.length + 1}`, target: 70 }],
+    });
+  };
+
+  const assignCOLevel = (attainment) => {
+    if (attainment > 80) return 3;
+    if (attainment > 60) return 2;
+    return 1;
+  };
+
+  const adjustTargetsAutomatically = (currentTargets, coSummary) => {
+    return currentTargets.map((target) => {
+      const attainment = coSummary?.find((co) => co.coId === target.coId)?.avgAttainment || 0;
+      const nextYearTarget = attainment > target.target + 10 ? Math.min(target.target + 5, 100) : target.target;
+      return { ...target, target: nextYearTarget };
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem("token");
+    try {
+      setLoading(true);
+      if (modalType === "add") {
+        const newStudent = {
+          studentId: formData.id,
+          name: formData.name,
+          department: formData.department,
+          marks: [
+            {
+              year: formData.year,
+              internal: parseFloat(formData.internalMarks),
+              exam: parseFloat(formData.examMarks),
+              totalInternal: parseFloat(formData.totalInternal),
+              totalExam: parseFloat(formData.totalExam),
+              coMapping: formData.coMapping.map((co) => ({
+                coId: co.coId,
+                internal: parseFloat(co.internal),
+                exam: parseFloat(co.exam),
+                totalInternal: parseFloat(co.totalInternal),
+                totalExam: parseFloat(co.totalExam),
+              })),
+            },
+          ],
+          courseOutcomes: formData.coTargets,
+          coPoMapping: formData.coTargets.map((co) => ({
+            coId: co.coId,
+            poMapping: [
+              { poId: "PO1", weight: 3 },
+              { poId: "PO2", weight: 2 },
+            ],
+          })),
+        };
+        await axios.post("http://localhost:5000/api/students", newStudent, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        alert("Student added successfully!");
+      } else if (modalType === "update") {
+        const updatedMarks = {
+          year: formData.year,
+          internal: parseFloat(formData.internalMarks),
+          exam: parseFloat(formData.examMarks),
+          totalInternal: parseFloat(formData.totalInternal),
+          totalExam: parseFloat(formData.totalExam),
+          coMapping: formData.coMapping.map((co) => ({
+            coId: co.coId,
+            internal: parseFloat(co.internal),
+            exam: parseFloat(co.exam),
+            totalInternal: parseFloat(co.totalInternal),
+            totalExam: parseFloat(co.totalExam),
+          })),
+        };
+        const response = await axios.put(
+          `http://localhost:5000/api/students/${editingStudentId}`,
+          { marks: updatedMarks, courseOutcomes: formData.coTargets },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const updatedCoPoData = await axios.get(`http://localhost:5000/api/students/calculate-co-po/${editingStudentId}`);
+        const adjustedTargets = adjustTargetsAutomatically(formData.coTargets, updatedCoPoData.data.coSummary);
+        await axios.put(
+          `http://localhost:5000/api/students/${editingStudentId}`,
+          { courseOutcomes: adjustedTargets },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        alert("Marks updated and targets adjusted successfully!");
+      }
+      setIsModalOpen(false);
+      fetchStudents();
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      alert(error.response?.data?.error || "Failed to save data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredStudents = students.filter(
+    (student) =>
+      (!filter.studentId || student.studentId.includes(filter.studentId)) &&
+      (!filter.course || student.name.toLowerCase().includes(filter.course.toLowerCase())) &&
+      (!filter.department || student.department.toLowerCase().includes(filter.department.toLowerCase()))
+  );
+
+  const coPoChartData = (studentId) => {
+    const data = coPoData[studentId] || { coSummary: [], poSummary: [] };
+    console.log(`CO/PO Chart Data for student ${studentId}:`, data);
+    return {
+      labels: [...data.coSummary.map((co) => co.coId), ...data.poSummary.map((po) => po.poId)],
+      datasets: [
+        {
+          label: "Attainment (%)",
+          data: [
+            ...data.coSummary.map((co) => co.avgAttainment || 0),
+            ...data.poSummary.map((po) => po.avgAttainment || 0),
+          ],
+          backgroundColor: "rgba(40, 167, 69, 0.6)",
+          borderColor: "rgba(40, 167, 69, 1)",
+          borderWidth: 1,
+        },
+      ],
+    };
+  };
+
+  const historicalChartData = (student) => {
+    const data = {
+      labels: student.marks.map((m) => m.year || `Entry ${student.marks.indexOf(m) + 1}`),
+      datasets: [
+        {
+          label: "Internal (%)",
+          data: student.marks.map((m) => (m.internal / m.totalInternal) * 100 || 0),
+          backgroundColor: "rgba(40, 167, 69, 0.6)",
+          borderColor: "rgba(40, 167, 69, 1)",
+          borderWidth: 1,
+        },
+        {
+          label: "Exam (%)",
+          data: student.marks.map((m) => (m.exam / m.totalExam) * 100 || 0),
+          backgroundColor: "rgba(255, 99, 132, 0.6)",
+          borderColor: "rgba(255, 99, 132, 1)",
+          borderWidth: 1,
+        },
+      ],
+    };
+    console.log(`Historical Chart Data for student ${student.studentId}:`, data);
+    return data;
+  };
+
+  const calculateThreeYearComparison = (student) => {
+    const recentMarks = student.marks.slice(-3);
+    const avgInternal = recentMarks.reduce((sum, m) => sum + (m.internal / m.totalInternal) * 100, 0) / recentMarks.length || 0;
+    const avgExam = recentMarks.reduce((sum, m) => sum + (m.exam / m.totalExam) * 100, 0) / recentMarks.length || 0;
+    const latest = student.marks[student.marks.length - 1];
+    const currentInternal = (latest?.internal / latest?.totalInternal) * 100 || 0;
+    const currentExam = (latest?.exam / latest?.totalExam) * 100 || 0;
+    return {
+      avgInternal: avgInternal.toFixed(2),
+      avgExam: avgExam.toFixed(2),
+      internalAboveAvg: currentInternal > avgInternal ? "Above" : "Below",
+      examAboveAvg: currentExam > avgExam ? "Above" : "Below",
+    };
+  };
+
+  return (
+    <div className={`dashboard-container ${darkMode ? "dark-mode" : ""}`}>
+      <div className="dashboard-header">
+        <h2>Student Performance Dashboard</h2>
+        <div className="header-nav">
+          <button onClick={() => navigate("/university-performance")} className="nav-btn">
+            University Performance
+          </button>
+          <button onClick={() => navigate("/semester-results-upload")} className="nav-btn">
+            Upload Semester Results
+          </button>
+          <div className="export-buttons">
+            <button className="export-btn" onClick={exportToExcel} disabled={loading}>
+              <FaFileExcel /> Export Excel {loading && "(Loading...)"}
+            </button>
+            <button className="export-btn" onClick={exportToPDF} disabled={loading}>
+              <FaFilePdf /> Export PDF {loading && "(Loading...)"}
+            </button>
+          </div>
+          <button className="theme-toggle" onClick={toggleDarkMode}>
+            {darkMode ? <FaSun /> : <FaMoon />}
+          </button>
+        </div>
+      </div>
+
+      <div className="dashboard-filters">
+        <input
+          type="text"
+          placeholder="Filter by Student ID"
+          value={filter.studentId}
+          onChange={(e) => setFilter({ ...filter, studentId: e.target.value })}
+        />
+        <input
+          type="text"
+          placeholder="Filter by Course/Name"
+          value={filter.course}
+          onChange={(e) => setFilter({ ...filter, course: e.target.value })}
+        />
+        <input
+          type="text"
+          placeholder="Filter by Department"
+          value={filter.department}
+          onChange={(e) => setFilter({ ...filter, department: e.target.value })}
+        />
+      </div>
+
+      <div className="student-cards">
+        {loading ? (
+          <p>Loading students...</p>
+        ) : filteredStudents.length === 0 ? (
+          <p className="no-students-message">No students available. Add a new student!</p>
+        ) : (
+          filteredStudents.map((student, index) => {
+            const threeYearComp = calculateThreeYearComparison(student);
+            return (
+              <div
+                key={student.studentId || index}
+                className={`student-card ${flippedCards[student.studentId] ? "flipped" : ""}`}
+                onClick={(e) => handleCardClick(e, student.studentId)}
+              >
+                <div className="card-inner">
+                  <div className="card-front">
+                    <button
+                      className="delete-btn"
+                      onClick={(e) => handleDelete(student.studentId, e)}
+                    >
+                      <FaTrash />
+                    </button>
+                    <div className="student-info">
+                      <span>
+                        <strong>Student ID:</strong> {student.studentId}
+                      </span>
+                      <span>
+                        <strong>Name:</strong> {student.name}
+                      </span>
+                      <span>
+                        <strong>Department:</strong> {student.department}
+                      </span>
+                      <span>
+                        <strong>Average:</strong> {student.average || "N/A"}
+                      </span>
+                    </div>
+                    <button
+                      className="add-marks-btn"
+                      onClick={(e) => openUpdateMarksModal(student, e)}
+                    >
+                      <span className="add-marks-text">+ Add Marks</span>
+                    </button>
+                  </div>
+                  <div className="card-back">
+                    <button
+                      className="details-btn"
+                      onClick={() => toggleDetails(student.studentId)}
+                    >
+                      <FaEye /> {showDetails[student.studentId] ? "Hide Details" : "Show Details"}
+                    </button>
+                    {showDetails[student.studentId] && (
+                      <>
+                        <h3>Performance Trends</h3>
+                        <div className="chart-container">
+                          {student.marks && student.marks.length > 0 ? (
+                            <Bar
+                              data={historicalChartData(student)}
+                              options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: "top" }, title: { display: true, text: "Historical Performance" } },
+                              }}
+                            />
+                          ) : (
+                            <p>No historical data available.</p>
+                          )}
+                        </div>
+                        <h3>3-Year Comparison</h3>
+                        <p>Internal Avg: {threeYearComp.avgInternal}% ({threeYearComp.internalAboveAvg})</p>
+                        <p>Exam Avg: {threeYearComp.avgExam}% ({threeYearComp.examAboveAvg})</p>
+                        <h3>CO/PO Attainment</h3>
+                        <div className="chart-container">
+                          {coPoData[student.studentId] && (coPoData[student.studentId].coSummary?.length > 0 || coPoData[student.studentId].poSummary?.length > 0) ? (
+                            <Bar
+                              data={coPoChartData(student.studentId)}
+                              options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: "top" }, title: { display: true, text: "CO/PO Attainment" } },
+                              }}
+                            />
+                          ) : (
+                            <p>No CO/PO data available.</p>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+
+        <button className="add-student-btn" onClick={(e) => openAddStudentModal(e)} disabled={loading}>
+          <FaPlus className="plus-icon" /> Add Student
+        </button>
+      </div>
+
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal" key={modalType}>
+            <button className="close-btn" onClick={() => setIsModalOpen(false)}>
+              ❌
+            </button>
+            <h2>{modalType === "add" ? "Add Student" : "Add Marks"}</h2>
+            <form onSubmit={handleSubmit}>
+              {modalType === "add" && (
+                <>
+                  <input
+                    type="text"
+                    name="id"
+                    placeholder="Student ID"
+                    value={formData.id}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Student Name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  <input
+                    type="text"
+                    name="department"
+                    placeholder="Department"
+                    value={formData.department}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </>
+              )}
+              <input
+                type="text"
+                name="year"
+                placeholder="Year"
+                value={formData.year}
+                onChange={handleInputChange}
+                required
+              />
+              <input
+                type="text"
+                name="internalMarks"
+                placeholder="Internal Marks"
+                value={formData.internalMarks}
+                onChange={handleInputChange}
+                required
+              />
+              <input
+                type="text"
+                name="totalInternal"
+                placeholder="Total Internal Marks"
+                value={formData.totalInternal}
+                onChange={handleInputChange}
+                required
+              />
+              <input
+                type="text"
+                name="examMarks"
+                placeholder="Exam Marks"
+                value={formData.examMarks}
+                onChange={handleInputChange}
+                required
+              />
+              <input
+                type="text"
+                name="totalExam"
+                placeholder="Total Exam Marks"
+                value={formData.totalExam}
+                onChange={handleInputChange}
+                required
+              />
+              <h3>CO Mapping</h3>
+              {formData.coMapping.map((co, index) => (
+                <div key={index}>
+                  <input
+                    type="text"
+                    placeholder={`CO${index + 1} Internal Marks`}
+                    value={co.internal}
+                    onChange={(e) => handleInputChange(e, index, "internal")}
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder={`CO${index + 1} Internal Total`}
+                    value={co.totalInternal}
+                    onChange={(e) => handleInputChange(e, index, "totalInternal")}
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder={`CO${index + 1} Exam Marks`}
+                    value={co.exam}
+                    onChange={(e) => handleInputChange(e, index, "exam")}
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder={`CO${index + 1} Exam Total`}
+                    value={co.totalExam}
+                    onChange={(e) => handleInputChange(e, index, "totalExam")}
+                    required
+                  />
+                </div>
+              ))}
+              <button type="button" onClick={addCoMapping}>Add CO</button>
+              <h3>CO Targets</h3>
+              {formData.coTargets.map((co, index) => (
+                <div key={index}>
+                  <input
+                    type="text"
+                    placeholder={`CO${index + 1} Target (%)`}
+                    value={co.target}
+                    onChange={(e) => handleInputChange(e, index, "target")}
+                    required
+                  />
+                </div>
+              ))}
+              <button type="submit" disabled={loading}>
+                Save {loading && "(Saving...)"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Dashboard;

@@ -1,0 +1,189 @@
+.student-card {
+  width: 300px;
+  height: 250px;
+  perspective: 1000px;
+  cursor: pointer;
+  position: relative;
+}
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  background: white;
+}
+
+body.dark-mode .card-inner {
+  background: #333;
+  color: white;
+}
+
+.student-card.flipped .card-inner {
+  transform: rotateY(180deg);
+}
+
+.card-front,
+.card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-radius: 10px;
+  padding: 15px;
+  box-sizing: border-box;
+}
+
+.card-front {
+  background: white;
+}
+
+body.dark-mode .card-front {
+  background: #333;
+}
+
+.card-back {
+  background: #f0f0f0;
+  transform: rotateY(180deg);
+  justify-content: flex-start;
+  align-items: center;
+  overflow-y: auto;
+}
+
+body.dark-mode .card-back {
+  background: #444;
+}
+
+.student-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  color: #333;
+  text-align: left;
+  width: 100%;
+}
+
+body.dark-mode .student-info {
+  color: white;
+}
+
+.add-marks-btn {
+  position: absolute;
+  bottom: 15px;
+  right: 10px;
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  height: 35px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.add-marks-btn:hover {
+  background-color: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .add-marks-btn {
+  background-color: #444;
+  color: #fff;
+}
+
+/* Delete Button Styles */
+.delete-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.3s, background 0.3s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.delete-btn:hover {
+  color: #ff4d4d;
+  background: rgba(255, 255, 255, 1);
+}
+
+body.dark-mode .delete-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+}
+
+body.dark-mode .delete-btn:hover {
+  color: #ff4d4d;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Show Details Button */
+.details-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.details-btn:hover {
+  background: #0056b3;
+}
+
+body.dark-mode .details-btn {
+  background: #00c6ff;
+}
+
+body.dark-mode .details-btn:hover {
+  background: #0096cc;
+}
+
+/* Chart Container */
+.chart-container {
+  width: 100%;
+  height: 120px; /* Increased height to ensure visibility */
+  min-height: 120px; /* Ensure minimum height */
+  position: relative;
+}
+
+.card-back h3 {
+  font-size: 14px;
+  margin: 5px 0;
+}
+
+.card-back p {
+  font-size: 12px;
+  margin: 3px 0;
+}

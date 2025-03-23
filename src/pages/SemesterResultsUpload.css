@@ -1,0 +1,166 @@
+/* SemesterResultsUpload.css */
+.semester-results-upload-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 100vh; /* Ensure the container takes up at least the full viewport height */
+}
+
+.semester-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.semester-header h2 {
+  margin: 0;
+}
+
+.back-btn,
+.print-btn,
+.upload-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.back-btn {
+  background-color: #6c757d;
+  color: white;
+}
+
+.print-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.upload-btn {
+  background-color: #007bff;
+  color: white;
+}
+
+.file-upload-section {
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+.file-input {
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-input label {
+  font-weight: bold;
+}
+
+.results-section {
+  margin-top: 20px;
+}
+
+.results-section h3 {
+  margin-bottom: 10px;
+  color: #333;
+}
+
+/* Attainment Procedure Table */
+.attainment-procedure {
+  margin-bottom: 20px;
+}
+
+.attainment-procedure-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.attainment-procedure-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+  background-color: #e6f3ff; /* Light blue background */
+}
+
+.attainment-procedure-table tr:last-child td {
+  background-color: #ffeb99; /* Yellow background for the last row */
+}
+
+/* Results Tables */
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.results-table th,
+.results-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.results-table th {
+  background-color: #007bff;
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.results-table tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+.results-table tr.highlight {
+  background-color: #ffeb99; /* Yellow background for highlighted rows */
+}
+
+/* Color coding for YES/NO */
+.results-table td {
+  color: #333;
+}
+
+.results-table td:contains("YES") {
+  color: green;
+  font-weight: bold;
+}
+
+.results-table td:contains("NO") {
+  color: red;
+  font-weight: bold;
+}
+
+.error-section {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.no-results {
+  margin-top: 20px;
+  text-align: center;
+  color: #666;
+}
+
+/* Ensure the body allows scrolling */
+body {
+  overflow-y: auto;
+}
+
+/* Custom pseudo-class for text matching (since CSS doesn't have :contains, we'll use a class) */
+.results-table td.yes {
+  color: green;
+  font-weight: bold;
+}
+
+.results-table td.no {
+  color: red;
+  font-weight: bold;
+}

@@ -1,0 +1,364 @@
+/* Ensure Full Background Coverage */
+body,
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-color: #fff !important;
+  transition: background 0.3s ease-in-out;
+}
+
+/* When Dark Mode is Activated */
+body.dark-mode,
+body.dark-mode html {
+  background-color: #121212 !important;
+  color: white !important;
+}
+
+/* Dashboard Container */
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  background: #fff !important;
+  transition: background 0.3s, color 0.3s;
+  min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body.dark-mode .dashboard-container {
+  background: #121212 !important;
+  color: white !important;
+}
+
+/* Header */
+.dashboard-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px; /* Reduced padding */
+  background: #f8f9fa;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  margin: 10px 0; /* Reduced margin */
+  max-width: 95vw; /* Increased max-width */
+}
+
+body.dark-mode .dashboard-header {
+  background: #222 !important;
+}
+
+/* Header Title */
+.dashboard-header h2 {
+  margin: 0;
+  font-size: 20px; /* Reduced font size */
+  flex: 1;
+  text-align: center;
+  color: #333;
+  margin-right: 15px; /* Reduced margin */
+}
+
+body.dark-mode .dashboard-header h2 {
+  color: white !important;
+}
+
+/* Export Buttons */
+.export-buttons {
+  display: flex;
+  gap: 10px; /* Reduced gap */
+}
+
+.export-btn {
+  background: linear-gradient(135deg, #00c6ff, #0072ff);
+  color: white;
+  border: none;
+  padding: 8px 14px; /* Reduced padding */
+  border-radius: 20px; /* Reduced border-radius */
+  cursor: pointer;
+  transition: 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: bold;
+  font-size: 12px; /* Reduced font size */
+}
+
+.export-btn:hover {
+  background: linear-gradient(135deg, #0072ff, #00c6ff);
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 20px; /* Reduced font size */
+  margin-left: 15px; /* Reduced margin */
+}
+
+.theme-toggle svg {
+  color: #008ffb;
+}
+
+body.dark-mode .theme-toggle svg {
+  color: #ffcc00 !important;
+}
+
+/* Student Cards - Grid Layout */
+.student-cards {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(300px, 1fr)
+  ); /* Adjusted to match new card width */
+  gap: 20px; /* Reduced gap */
+  justify-content: center;
+  padding: 10px;
+  width: 100%;
+  max-width: 95vw; /* Increased max-width */
+  margin: 0 auto;
+}
+
+/* Add Student Button - Match Student Card Styling */
+.add-student-btn {
+  width: 300px; /* Match new card width */
+  height: 250px; /* Match new card height */
+  background: white;
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s, color 0.3s;
+}
+
+body.dark-mode .add-student-btn {
+  background: #333 !important;
+  color: white !important;
+}
+
+.add-student-btn:hover {
+  background: #e9ecef;
+}
+
+body.dark-mode .add-student-btn:hover {
+  background: #444 !important;
+}
+
+/* Ensure the plus icon is white in dark mode */
+body.dark-mode .add-student-btn .plus-icon {
+  color: white !important;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  display: block;
+}
+
+/* Modal Content */
+.modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, #ffffff, #f0f4f8);
+  padding: 15px; /* Reduced padding */
+  padding-bottom: 10px;
+  border-radius: 15px; /* Reduced border-radius */
+  box-shadow: 0 8px 32px rgba(0, 123, 255, 0.2), 0 0 20px rgba(0, 191, 255, 0.1);
+  width: 350px;
+  max-width: 90%;
+  max-height: 70vh;
+  height: auto;
+  z-index: 1002;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow-y: auto;
+  animation: fadeIn 0.3s ease-in-out;
+  display: block;
+}
+
+body.dark-mode .modal {
+  background: linear-gradient(135deg, #2a2a2a, #1e1e1e);
+  color: white;
+  box-shadow: 0 8px 32px rgba(0, 191, 255, 0.2), 0 0 20px rgba(0, 191, 255, 0.1);
+}
+
+/* Fade-in Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Modal Title */
+.modal h2 {
+  margin: 0 0 10px; /* Reduced margin */
+  font-size: 18px; /* Reduced font size */
+  text-align: center;
+  color: #333;
+  font-weight: 600;
+}
+
+body.dark-mode .modal h2 {
+  color: #fff;
+}
+
+/* Close Button */
+.close-btn {
+  position: absolute;
+  top: 8px; /* Reduced position */
+  right: 8px;
+  background: transparent;
+  border: none;
+  font-size: 16px; /* Reduced font size */
+  cursor: pointer;
+  color: #666;
+  transition: color 0.3s;
+  margin: 0;
+}
+
+.close-btn:hover {
+  color: #ff4d4d;
+}
+
+body.dark-mode .close-btn {
+  color: #ccc;
+}
+
+body.dark-mode .close-btn:hover {
+  color: #ff4d4d;
+}
+
+/* Modal Form */
+.modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* Reduced gap */
+  margin: 0;
+  padding: 0;
+}
+
+/* Form Inputs */
+.modal input {
+  padding: 6px; /* Reduced padding */
+  border: 1px solid #ddd;
+  border-radius: 6px; /* Reduced border-radius */
+  font-size: 12px; /* Reduced font size */
+  background: rgba(255, 255, 255, 0.8);
+  color: #333 !important; /* Fixed color */
+  transition: border-color 0.3s, box-shadow 0.3s;
+  margin: 0;
+}
+
+.modal input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.2);
+}
+
+body.dark-mode .modal input {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff !important; /* Fixed color */
+  border-color: #666;
+}
+
+body.dark-mode .modal input:focus {
+  border-color: #00c6ff;
+  box-shadow: 0 0 8px rgba(0, 198, 255, 0.2);
+}
+
+/* Save Button */
+.modal button[type="submit"] {
+  background: #28a745;
+  color: white;
+  padding: 6px; /* Reduced padding */
+  border: none;
+  border-radius: 6px; /* Reduced border-radius */
+  cursor: pointer;
+  font-size: 12px; /* Reduced font size */
+  font-weight: 600;
+  transition: background 0.3s, transform 0.1s;
+  margin: 0;
+  margin-top: 6px; /* Reduced margin */
+}
+
+.modal button[type="submit"]:hover {
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.modal button[type="submit"]:active {
+  transform: translateY(0);
+}
+
+/* No Students Message */
+.no-students-message {
+  text-align: center;
+  font-size: 16px; /* Reduced font size */
+  color: #666;
+  margin: 15px 0; /* Reduced margin */
+}
+
+body.dark-mode .no-students-message {
+  color: #ccc !important;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .student-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .student-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .student-cards {
+    grid-template-columns: repeat(1, 1fr);
+  }
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.nav-btn {
+  padding: 10px 20px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}

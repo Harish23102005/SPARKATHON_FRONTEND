@@ -1,0 +1,260 @@
+/* Font imports */
+@import url("https://fonts.googleapis.com/css?family=Poppins:200,300,400,500,600,700,800,900&display=swap");
+@import url("https://use.fontawesome.com/releases/v6.5.1/css/all.css");
+
+/* Global reset and styling */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+@property --a {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+body {
+  min-height: 100vh;
+  background: #181818; /* Match tile color */
+  overflow: hidden; /* Prevent scrolling */
+}
+
+/* Tiled background */
+section {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  background: #181818; /* Match tile color to avoid visible gaps */
+  z-index: 1; /* Ensure tiles are behind the form */
+}
+
+section span {
+  position: relative;
+  display: block;
+  width: 6vmin; /* Increased tile size */
+  height: 6vmin;
+  background: #181818;
+  transition: 1.5s;
+}
+
+section span:hover {
+  background: #f00;
+  transition: 0s;
+}
+
+/* Form container with animation */
+.box {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px; /* Original size */
+  height: 200px;
+  background: repeating-conic-gradient(
+    from var(--a),
+    #f00 0%,
+    #f00 10%,
+    /* Adjusted for better visibility */ transparent 10%,
+    transparent 40%,
+    #f00 50%
+  );
+  border-radius: 20px;
+  animation: rotating 4s linear infinite;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: 0.5s;
+  z-index: 1000;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5); /* Simplified shadow */
+}
+
+@keyframes rotating {
+  0% {
+    --a: 0deg;
+  }
+  100% {
+    --a: 360deg;
+  }
+}
+
+.box::before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: repeating-conic-gradient(
+    from var(--a),
+    #fff 0%,
+    #fff 10%,
+    /* Adjusted for better visibility */ transparent 10%,
+    transparent 40%,
+    #fff 50%
+  );
+  border-radius: 20px;
+  animation: rotating 4s linear infinite;
+  animation-delay: -1s;
+}
+
+.box::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  background: #2d2d39;
+  border-radius: 15px;
+  border: 8px solid #181818;
+}
+
+.box:hover {
+  width: 450px; /* Original hover size */
+  height: 500px;
+}
+
+.box:hover .login {
+  inset: 40px;
+}
+
+.box:hover .loginBx {
+  transform: translateY(0px);
+}
+
+/* Login form styling */
+.login {
+  position: absolute;
+  inset: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  border-radius: 10px;
+  background: #00000033;
+  color: #fff;
+  z-index: 1001;
+  box-shadow: inset 0 10px 20px #00000080;
+  border-bottom: 2px solid #ffffff80;
+  transition: 0.5s;
+  overflow: hidden;
+}
+
+.loginBx {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 20px; /* Adjust spacing */
+  width: 70%;
+  transform: translateY(150px);
+  transition: 0.5s;
+}
+
+h2 {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: #f00;
+}
+
+h2 i {
+  color: #f00;
+  text-shadow: 0 0 5px #f00, 0 0 20px #f00;
+}
+
+input {
+  width: 100%;
+  padding: 10px 20px;
+  outline: none;
+  border: none;
+  font-size: 1em;
+  color: #fff;
+  background: #0000001a;
+  border: 2px solid #fff;
+  border-radius: 30px;
+}
+
+input::placeholder {
+  color: #999;
+}
+
+input[type="submit"] {
+  background: #f00;
+  border: none;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  transition: 0.5s;
+}
+
+input[type="submit"]:hover {
+  box-shadow: 0 0 10px #f00, 0 0 60px #f00;
+}
+
+.group {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+}
+
+.group a {
+  color: #fff;
+  text-decoration: none;
+}
+
+.group a:nth-child(2) {
+  color: #f00;
+  font-weight: 600;
+}
+
+/* Password container with eye icon */
+.password-container {
+  position: relative;
+}
+
+.password-container input {
+  padding-right: 40px;
+}
+
+.eye-icon {
+  position: absolute;
+  right: 15px;
+  top: 38%;
+  transform: translateY(-50%);
+  color: #aaa;
+  cursor: pointer;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  section span {
+    width: 8vmin; /* Adjusted for larger tiles on smaller screens */
+    height: 8vmin;
+  }
+  .box {
+    width: 80%;
+    height: 180px; /* Adjusted for smaller screens */
+  }
+}
+
+@media (max-width: 600px) {
+  section span {
+    width: 12vmin;
+    height: 12vmin;
+  }
+  .box {
+    width: 90%;
+    height: 160px;
+  }
+}
+.loginBx input {
+  margin-bottom: 15px; /* Adds space between inputs */
+}
+
+.loginBx input:last-child {
+  margin-top: 10px; /* Adds space above the login/signup button */
+}

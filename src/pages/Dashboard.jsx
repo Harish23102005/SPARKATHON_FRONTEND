@@ -34,8 +34,8 @@ const Dashboard = () => {
     coTargets: [{ coId: "CO1", target: "70" }],
   });
   const [editingStudentId, setEditingStudentId] = useState(null);
-  const [coPoData, setCoPoData] = useState({});
-  const [coPoLoading, setCoPoLoading] = useState({}); // Added loading state for CO/PO data
+  const [coData, setCoData] = useState({});
+  const [coLoading, setCoLoading] = useState({});
   const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
   const [loading, setLoading] = useState(false);
 
@@ -63,14 +63,12 @@ const Dashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Filter out students without a valid studentId
-      const validStudents = response.data.filter(student => student.studentId);
+      const validStudents = response.data.filter(student => student.student_id); // Use student_id from backend
       setStudents(validStudents);
 
-      // Fetch CO/PO data for valid students with a delay to avoid overwhelming the backend
       for (const student of validStudents) {
-        await fetchCoPoData(student.studentId);
-        await new Promise(resolve => setTimeout(resolve, 100)); // Simple debounce
+        await fetchCoData(student.student_id);
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     } catch (error) {
       console.error("Error fetching students:", error);
@@ -84,27 +82,27 @@ const Dashboard = () => {
     }
   };
 
-  const fetchCoPoData = async (studentId, retryCount = 0) => {
+  const fetchCoData = async (studentId, retryCount = 0) => {
     if (!studentId) {
-      console.warn("Skipping CO/PO fetch: studentId is undefined");
+      console.warn("Skipping CO fetch: studentId is undefined");
       return;
     }
-    setCoPoLoading((prev) => ({ ...prev, [studentId]: true }));
+    setCoLoading((prev) => ({ ...prev, [studentId]: true }));
     try {
       const token = localStorage.getItem("token");
       const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
       const response = await axios.get(`${baseUrl}/api/students/calculate-co-po/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setCoPoData((prev) => ({ ...prev, [studentId]: response.data }));
-      console.log(`CO/PO data for student ${studentId}:`, response.data);
+      setCoData((prev) => ({ ...prev, [studentId]: response.data }));
+      console.log(`CO data for student ${studentId}:`, response.data);
     } catch (error) {
-      console.error(`Error fetching CO/PO data for student ${studentId}:`, error);
+      console.error(`Error fetching CO data for student ${studentId}:`, error);
       if (retryCount < 2) {
-        setTimeout(() => fetchCoPoData(studentId, retryCount + 1), 1000);
+        setTimeout(() => fetchCoData(studentId, retryCount + 1), 1000);
       }
     } finally {
-      setCoPoLoading((prev) => ({ ...prev, [studentId]: false }));
+      setCoLoading((prev) => ({ ...prev, [studentId]: false }));
     }
   };
 
@@ -117,8 +115,8 @@ const Dashboard = () => {
     setLoading(true);
     try {
       for (const student of students) {
-        if (!coPoData[student.studentId]) {
-          await fetchCoPoData(student.studentId);
+        if (!coData[student.student_id]) {
+          await fetchCoData(student.student_id);
         }
       }
 
@@ -130,20 +128,15 @@ const Dashboard = () => {
       const wb = XLSX.utils.book_new();
       Object.entries(groupedByDept).forEach(([dept, deptStudents]) => {
         const ws = XLSX.utils.json_to_sheet(
-          deptStudents.map((student) => {
-            const row = {};
-            row.studentId = student.studentId;
-            row.name = student.name;
-            row.department = student.department;
-            row.average = student.average;
-            row.coAttainment = coPoData[student.studentId]?.coSummary
+          deptStudents.map((student) => ({
+            studentId: student.student_id,
+            name: student.name,
+            department: student.department,
+            average: student.average,
+            coAttainment: coData[student.student_id]?.coSummary
               ?.map((co) => `${co.coId}: ${co.avgAttainment.toFixed(2)}% (Level ${assignCOLevel(co.avgAttainment)})`)
-              .join(", ") || "N/A";
-            row.poAttainment = coPoData[student.studentId]?.poSummary
-              ?.map((po) => `${po.poId}: ${po.avgAttainment.toFixed(2)}%`)
-              .join(", ") || "N/A";
-            return row;
-          })
+              .join(", ") || "N/A",
+          }))
         );
         XLSX.utils.book_append_sheet(wb, ws, dept.slice(0, 31));
       });
@@ -164,8 +157,8 @@ const Dashboard = () => {
       }
       setLoading(true);
       for (const student of students) {
-        if (!coPoData[student.studentId]) {
-          await fetchCoPoData(student.studentId);
+        if (!coData[student.student_id]) {
+          await fetchCoData(student.student_id);
         }
       }
 
@@ -180,25 +173,16 @@ const Dashboard = () => {
       Object.entries(groupedByDept).forEach(([dept, deptStudents]) => {
         doc.text(`Department: ${dept}`, 10, yOffset);
         yOffset += 10;
-        const head = [["studentId", "name", "department", "average", "coAttainment", "poAttainment"]];
-        const body = deptStudents.map((student) => {
-          const row = [];
-          row.push(student.studentId);
-          row.push(student.name);
-          row.push(student.department);
-          row.push(student.average);
-          row.push(
-            coPoData[student.studentId]?.coSummary
-              ?.map((co) => `${co.coId}: ${co.avgAttainment.toFixed(2)}% (Level ${assignCOLevel(co.avgAttainment)})`)
-              .join(", ") || "N/A"
-          );
-          row.push(
-            coPoData[student.studentId]?.poSummary
-              ?.map((po) => `${po.poId}: ${po.avgAttainment.toFixed(2)}%`)
-              .join(", ") || "N/A"
-          );
-          return row;
-        });
+        const head = [["studentId", "name", "department", "average", "coAttainment"]];
+        const body = deptStudents.map((student) => [
+          student.student_id,
+          student.name,
+          student.department,
+          student.average,
+          coData[student.student_id]?.coSummary
+            ?.map((co) => `${co.coId}: ${co.avgAttainment.toFixed(2)}% (Level ${assignCOLevel(co.avgAttainment)})`)
+            .join(", ") || "N/A",
+        ]);
         autoTable(doc, { head, body, startY: yOffset });
         yOffset = doc.lastAutoTable.finalY + 10;
       });
@@ -217,7 +201,7 @@ const Dashboard = () => {
       ...prev,
       [studentId]: !prev[studentId],
     }));
-    fetchCoPoData(studentId);
+    fetchCoData(studentId);
   };
 
   const toggleDetails = (studentId) => {
@@ -248,7 +232,7 @@ const Dashboard = () => {
   const openUpdateMarksModal = (student, e) => {
     setModalType("update");
     setFormData({
-      id: student.studentId,
+      id: student.student_id,
       name: student.name,
       department: student.department,
       year: new Date().getFullYear().toString(),
@@ -259,7 +243,7 @@ const Dashboard = () => {
       coMapping: student.marks[0]?.coMapping || [{ coId: "CO1", internal: "", exam: "", totalInternal: "", totalExam: "" }],
       coTargets: student.courseOutcomes || [{ coId: "CO1", target: "70" }],
     });
-    setEditingStudentId(student.studentId);
+    setEditingStudentId(student.student_id);
     setIsModalOpen(true);
   };
 
@@ -272,7 +256,7 @@ const Dashboard = () => {
       await axios.delete(`${baseUrl}/api/students/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setStudents(students.filter((student) => student.studentId !== studentId));
+      setStudents(students.filter((student) => student.student_id !== studentId));
       alert("Student deleted successfully!");
     } catch (error) {
       console.error("Error deleting student:", error);
@@ -331,7 +315,7 @@ const Dashboard = () => {
       setLoading(true);
       if (modalType === "add") {
         const newStudent = {
-          studentId: formData.id,
+          studentId: formData.id, // Matches frontend expectation
           name: formData.name,
           department: formData.department,
           marks: [
@@ -354,13 +338,6 @@ const Dashboard = () => {
             coId: target.coId,
             target: parseFloat(target.target) || 70,
           })),
-          coPoMapping: formData.coTargets.map((co) => ({
-            coId: co.coId,
-            poMapping: [
-              { poId: "PO1", weight: 3 },
-              { poId: "PO2", weight: 2 },
-            ],
-          })),
         };
         console.log("Submitting new student:", newStudent);
         await axios.post(`${baseUrl}/api/students`, newStudent, {
@@ -382,24 +359,29 @@ const Dashboard = () => {
             totalExam: parseFloat(co.totalExam) || 0,
           })),
         };
-        const response = await axios.put(
-          `${baseUrl}/api/students/${editingStudentId}`,
-          { marks: updatedMarks, courseOutcomes: formData.coTargets.map((target) => ({
-            coId: target.coId,
-            target: parseFloat(target.target) || 70,
-          })) },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const updatedCoPoData = await axios.get(`${baseUrl}/api/students/calculate-co-po/${editingStudentId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const adjustedTargets = adjustTargetsAutomatically(formData.coTargets, updatedCoPoData.data.coSummary);
         await axios.put(
           `${baseUrl}/api/students/${editingStudentId}`,
-          { courseOutcomes: adjustedTargets.map((target) => ({
-            coId: target.coId,
-            target: parseFloat(target.target) || 70,
-          })) },
+          {
+            marks: updatedMarks,
+            courseOutcomes: formData.coTargets.map((target) => ({
+              coId: target.coId,
+              target: parseFloat(target.target) || 70,
+            })),
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const updatedCoData = await axios.get(`${baseUrl}/api/students/calculate-co-po/${editingStudentId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const adjustedTargets = adjustTargetsAutomatically(formData.coTargets, updatedCoData.data.coSummary);
+        await axios.put(
+          `${baseUrl}/api/students/${editingStudentId}`,
+          {
+            courseOutcomes: adjustedTargets.map((target) => ({
+              coId: target.coId,
+              target: parseFloat(target.target) || 70,
+            })),
+          },
           { headers: { Authorization: `Bearer ${token}` } }
         );
         alert("Marks updated and targets adjusted successfully!");
@@ -416,26 +398,21 @@ const Dashboard = () => {
 
   const filteredStudents = students.filter(
     (student) =>
-      (!filter.studentId || student.studentId.includes(filter.studentId)) &&
+      (!filter.studentId || student.student_id.includes(filter.studentId)) &&
       (!filter.course || student.name.toLowerCase().includes(filter.course.toLowerCase())) &&
       (!filter.department || student.department.toLowerCase().includes(filter.department.toLowerCase()))
   );
 
-  const coPoChartData = (studentId) => {
-    const data = coPoData[studentId] || { coSummary: [], poSummary: [] };
-    console.log(`CO/PO Chart Data for student ${studentId}:`, data);
+  const coChartData = (studentId) => {
+    const data = coData[studentId] || {};
+    const coSummary = Array.isArray(data.coSummary) ? data.coSummary : [];
+    console.log(`CO Chart Data for student ${studentId}:`, coSummary);
     return {
-      labels: [
-        ...(data.coSummary?.map((co) => co.coId) || []),
-        ...(data.poSummary?.map((po) => po.poId) || []),
-      ],
+      labels: coSummary.map((co) => co.coId) || [],
       datasets: [
         {
           label: "Attainment (%)",
-          data: [
-            ...(data.coSummary?.map((co) => co.avgAttainment || 0) || []),
-            ...(data.poSummary?.map((po) => po.avgAttainment || 0) || []),
-          ],
+          data: coSummary.map((co) => co.avgAttainment || 0) || [],
           backgroundColor: "rgba(40, 167, 69, 0.6)",
           borderColor: "rgba(40, 167, 69, 1)",
           borderWidth: 1,
@@ -464,7 +441,7 @@ const Dashboard = () => {
         },
       ],
     };
-    console.log(`Historical Chart Data for student ${student.studentId}:`, data);
+    console.log(`Historical Chart Data for student ${student.student_id}:`, data);
     return data;
   };
 
@@ -539,21 +516,21 @@ const Dashboard = () => {
             const threeYearComp = calculateThreeYearComparison(student);
             return (
               <div
-                key={student.studentId || index}
-                className={`student-card ${flippedCards[student.studentId] ? "flipped" : ""}`}
-                onClick={(e) => handleCardClick(e, student.studentId)}
+                key={student.student_id || index}
+                className={`student-card ${flippedCards[student.student_id] ? "flipped" : ""}`}
+                onClick={(e) => handleCardClick(e, student.student_id)}
               >
                 <div className="card-inner">
                   <div className="card-front">
                     <button
                       className="delete-btn"
-                      onClick={(e) => handleDelete(student.studentId, e)}
+                      onClick={(e) => handleDelete(student.student_id, e)}
                     >
                       <FaTrash />
                     </button>
                     <div className="student-info">
                       <span>
-                        <strong>Student ID:</strong> {student.studentId}
+                        <strong>Student ID:</strong> {student.student_id}
                       </span>
                       <span>
                         <strong>Name:</strong> {student.name}
@@ -575,11 +552,11 @@ const Dashboard = () => {
                   <div className="card-back">
                     <button
                       className="details-btn"
-                      onClick={() => toggleDetails(student.studentId)}
+                      onClick={() => toggleDetails(student.student_id)}
                     >
-                      <FaEye /> {showDetails[student.studentId] ? "Hide Details" : "Show Details"}
+                      <FaEye /> {showDetails[student.student_id] ? "Hide Details" : "Show Details"}
                     </button>
-                    {showDetails[student.studentId] && (
+                    {showDetails[student.student_id] && (
                       <>
                         <h3>Performance Trends</h3>
                         <div className="chart-container">
@@ -599,21 +576,21 @@ const Dashboard = () => {
                         <h3>3-Year Comparison</h3>
                         <p>Internal Avg: {threeYearComp.avgInternal}% ({threeYearComp.internalAboveAvg})</p>
                         <p>Exam Avg: {threeYearComp.avgExam}% ({threeYearComp.examAboveAvg})</p>
-                        <h3>CO/PO Attainment</h3>
+                        <h3>CO Attainment</h3>
                         <div className="chart-container">
-                          {coPoLoading[student.studentId] ? (
-                            <p>Loading CO/PO data...</p>
-                          ) : coPoData[student.studentId] && (coPoData[student.studentId].coSummary?.length > 0 || coPoData[student.studentId].poSummary?.length > 0) ? (
+                          {coLoading[student.student_id] ? (
+                            <p>Loading CO data...</p>
+                          ) : coData[student.student_id]?.coSummary?.length > 0 ? (
                             <Bar
-                              data={coPoChartData(student.studentId)}
+                              data={coChartData(student.student_id)}
                               options={{
                                 responsive: true,
                                 maintainAspectRatio: false,
-                                plugins: { legend: { position: "top" }, title: { display: true, text: "CO/PO Attainment" } },
+                                plugins: { legend: { position: "top" }, title: { display: true, text: "CO Attainment" } },
                               }}
                             />
                           ) : (
-                            <p>No CO/PO data available yet.</p>
+                            <p>No CO data available yet.</p>
                           )}
                         </div>
                       </>

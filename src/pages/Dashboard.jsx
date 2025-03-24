@@ -54,21 +54,6 @@ const Dashboard = () => {
     }
   }, [navigate]);
 
-  const calculateStudentAverage = (student) => {
-    if (!student.Marks || student.Marks.length === 0) {
-      return "N/A";
-    }
-  
-    const totalMarks = student.Marks.reduce((sum, mark) => {
-      const internalPercentage = (mark.internal / (mark.totalInternal || 1)) * 100;
-      const examPercentage = (mark.exam / (mark.totalExam || 1)) * 100;
-      return sum + (internalPercentage + examPercentage) / 2;
-    }, 0);
-  
-    const average = totalMarks / student.Marks.length;
-    return average.toFixed(2);
-  };
-  
   const fetchStudents = async (retryCount = 0) => {
     setLoading(true);
     try {
@@ -78,11 +63,11 @@ const Dashboard = () => {
         navigate("/login");
         return;
       }
-  
+
       const response = await axios.get(`${baseUrl}/students`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-  
+
       // Stricter validation for student_id
       const validStudents = response.data.filter(student => {
         const isValid = student.student_id && typeof student.student_id === "string" && student.student_id.trim() !== "";
@@ -92,14 +77,14 @@ const Dashboard = () => {
         return isValid;
       });
       console.log("Fetched students:", validStudents);
-  
+
       // Calculate average for each student if not provided
       const studentsWithAverage = validStudents.map(student => ({
         ...student,
         average: student.average || calculateStudentAverage(student),
       }));
       setStudents(studentsWithAverage);
-  
+
       // Fetch CO data for each student
       for (const student of studentsWithAverage) {
         if (student.student_id) {
@@ -484,6 +469,21 @@ const Dashboard = () => {
     }
   };
 
+  const calculateStudentAverage = (student) => {
+    if (!student.Marks || student.Marks.length === 0) {
+      return "N/A";
+    }
+
+    const totalMarks = student.Marks.reduce((sum, mark) => {
+      const internalPercentage = (mark.internal / (mark.totalInternal || 1)) * 100;
+      const examPercentage = (mark.exam / (mark.totalExam || 1)) * 100;
+      return sum + (internalPercentage + examPercentage) / 2;
+    }, 0);
+
+    const average = totalMarks / student.Marks.length;
+    return average.toFixed(2);
+  };
+
   const filteredStudents = students.filter(
     (student) =>
       (!filter.studentId || student.student_id.includes(filter.studentId)) &&
@@ -494,7 +494,7 @@ const Dashboard = () => {
   const coChartData = (studentId) => {
     const data = coData[studentId] || { coSummary: [] };
     const coSummary = Array.isArray(data.coSummary) ? data.coSummary : [];
-    console.log(`CO Chart Data for student ${studentId}:`, coSummary); // Debug log
+    console.log(`CO Chart Data for student ${studentId}:`, coSummary);
     if (!coSummary || coSummary.length === 0) {
       return {
         labels: ["No Data"],
@@ -527,7 +527,7 @@ const Dashboard = () => {
 
   const historicalChartData = (student) => {
     const marks = student?.Marks || [];
-    console.log(`Historical Chart Data for student ${student?.student_id || 'unknown'}:`, marks); // Debug log
+    console.log(`Historical Chart Data for student ${student?.student_id || 'unknown'}:`, marks);
     if (!marks || marks.length === 0) {
       return {
         labels: ["No Data"],
@@ -551,12 +551,25 @@ const Dashboard = () => {
         ],
       };
     }
+
+    const labels = marks.map((m, index) => m.year || `Entry ${index + 1}`);
+    const internalData = marks.map((m) => {
+      const percentage = (m.internal / (m.totalInternal || 1)) * 100;
+      return isNaN(percentage) ? 0 : percentage;
+    });
+    const examData = marks.map((m) => {
+      const percentage = (m.exam / (m.totalExam || 1)) * 100;
+      return isNaN(percentage) ? 0 : percentage;
+    });
+
+    console.log(`Historical Chart Data - Labels: ${labels}, Internal: ${internalData}, Exam: ${examData}`);
+
     return {
-      labels: marks.map((m, index) => m.year || `Entry ${index + 1}`),
+      labels,
       datasets: [
         {
           label: "Internal (%)",
-          data: marks.map((m) => (m.internal / (m.totalInternal || 1) * 100) || 0),
+          data: internalData,
           backgroundColor: "rgba(40, 167, 69, 0.6)",
           borderColor: "rgba(40, 167, 69, 1)",
           borderWidth: 1,
@@ -564,7 +577,7 @@ const Dashboard = () => {
         },
         {
           label: "Exam (%)",
-          data: marks.map((m) => (m.exam / (m.totalExam || 1) * 100) || 0),
+          data: examData,
           backgroundColor: "rgba(255, 99, 132, 0.6)",
           borderColor: "rgba(255, 99, 132, 1)",
           borderWidth: 1,
@@ -573,7 +586,7 @@ const Dashboard = () => {
       ],
     };
   };
-  
+
   const calculateThreeYearComparison = (student) => {
     const recentMarks = student?.Marks?.slice(-3) || [];
     const avgInternal = recentMarks.reduce((sum, m) => sum + (m.internal / (m.totalInternal || 1) * 100), 0) / (recentMarks.length || 1) || 0;
@@ -708,7 +721,7 @@ const Dashboard = () => {
                                     position: "top",
                                     labels: {
                                       font: {
-                                        size: 10, // Slightly increased font size
+                                        size: 10,
                                       },
                                     },
                                   },
@@ -716,7 +729,7 @@ const Dashboard = () => {
                                     display: true,
                                     text: "Historical Performance",
                                     font: {
-                                      size: 14, // Slightly increased font size
+                                      size: 14,
                                     },
                                   },
                                 },
@@ -727,17 +740,18 @@ const Dashboard = () => {
                                       maxRotation: 0,
                                       minRotation: 0,
                                       font: {
-                                        size: 10, // Slightly increased font size
+                                        size: 10,
                                       },
                                     },
                                   },
                                   y: {
                                     beginAtZero: true,
+                                    max: 100,
                                     ticks: {
                                       font: {
-                                        size: 10, // Slightly increased font size
+                                        size: 10,
                                       },
-                                      stepSize: 25, // Adjusted step size for better visibility
+                                      stepSize: 25,
                                     },
                                   },
                                 },
@@ -750,7 +764,7 @@ const Dashboard = () => {
                         <h3>3-Year Comparison</h3>
                         <p>Internal Avg: {threeYearComp.avgInternal}% ({threeYearComp.internalAboveAvg})</p>
                         <p>Exam Avg: {threeYearComp.avgExam}% ({threeYearComp.examAboveAvg})</p>
-                        <h3>CO Attainment</h3>
+                        <h3>CO/PO Attainment</h3>
                         <div className="chart-container">
                           {coLoading[student.student_id] ? (
                             <p>Loading CO data...</p>
@@ -773,15 +787,15 @@ const Dashboard = () => {
                                     position: "top",
                                     labels: {
                                       font: {
-                                        size: 10, // Slightly increased font size
+                                        size: 10,
                                       },
                                     },
                                   },
                                   title: {
                                     display: true,
-                                    text: "CO Attainment",
+                                    text: "CO/PO Attainment",
                                     font: {
-                                      size: 14, // Slightly increased font size
+                                      size: 14,
                                     },
                                   },
                                 },
@@ -792,17 +806,18 @@ const Dashboard = () => {
                                       maxRotation: 0,
                                       minRotation: 0,
                                       font: {
-                                        size: 10, // Slightly increased font size
+                                        size: 10,
                                       },
                                     },
                                   },
                                   y: {
                                     beginAtZero: true,
+                                    max: 100,
                                     ticks: {
                                       font: {
-                                        size: 10, // Slightly increased font size
+                                        size: 10,
                                       },
-                                      stepSize: 25, // Adjusted step size for better visibility
+                                      stepSize: 25,
                                     },
                                   },
                                 },

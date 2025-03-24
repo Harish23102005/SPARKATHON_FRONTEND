@@ -1,115 +1,256 @@
-.student-card {
-  width: 250px;
-  height: 250px;
-  perspective: 1000px;
-  cursor: pointer;
-  position: relative;
+/* Ensure Full Background Coverage */
+body,
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto; /* Allow scrolling on the body */
+  background-color: #fff !important;
+  transition: background 0.3s ease-in-out;
 }
 
-.card-inner {
+/* When Dark Mode is Activated */
+body.dark-mode,
+body.dark-mode html {
+  background-color: #121212 !important;
+  color: white !important;
+}
+
+/* Dashboard Container */
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px; /* Add padding for better spacing */
+  background: #fff !important;
+  transition: background 0.3s, color 0.3s;
+  min-height: 100vh; /* Ensure the container takes at least the full viewport height */
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  overflow-y: auto; /* Allow scrolling if content overflows */
+}
+
+body.dark-mode .dashboard-container {
+  background: #121212 !important;
+  color: white !important;
+}
+
+/* Header */
+.dashboard-header {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap; /* Allow wrapping to prevent overlap */
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: #f8f9fa;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  margin-bottom: 20px; /* Add margin to separate from filters */
+  max-width: 95vw;
+  box-sizing: border-box;
+}
+
+body.dark-mode .dashboard-header {
+  background: #222 !important;
+}
+
+/* Header Title */
+.dashboard-header h2 {
+  margin: 0;
+  font-size: 20px;
+  flex: 1;
+  text-align: center;
+  color: #333;
+  margin-right: 15px;
+}
+
+body.dark-mode .dashboard-header h2 {
+  color: white !important;
+}
+
+/* Header Navigation */
+.header-nav {
+  display: flex;
+  flex-wrap: wrap; /* Allow wrapping to prevent overlap */
+  align-items: center;
+  gap: 10px; /* Reduce gap for better spacing */
+}
+
+/* Navigation Buttons */
+.nav-btn {
+  padding: 8px 15px; /* Reduce padding to prevent overlap */
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 20px !important; /* Ensure rounded corners */
+  cursor: pointer;
+  font-size: 14px; /* Reduce font size */
+}
+
+/* Export Buttons */
+.export-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.export-btn {
+  background: linear-gradient(135deg, #00c6ff, #0072ff);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.export-btn:hover {
+  background: linear-gradient(135deg, #0072ff, #00c6ff);
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  margin-left: 15px;
+}
+
+.theme-toggle svg {
+  color: #008ffb;
+}
+
+body.dark-mode .theme-toggle svg {
+  color: #ffcc00 !important;
+}
+
+/* Filters Section */
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 95vw;
+  margin-bottom: 20px;
+}
+
+.filters input {
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Student Cards - Grid Layout */
+.student-cards {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(250px, 1fr)
+  ); /* Reduce card width to 250px */
+  gap: 20px;
+  justify-content: center;
+  padding: 10px;
+  width: 100%;
+  max-width: 95vw;
+  margin: 0 auto;
+  overflow-y: auto; /* Enable vertical scrolling */
+  overflow-x: hidden; /* Disable horizontal scrolling */
+  max-height: calc(100vh - 300px); /* Adjust height to fit within viewport */
+  box-sizing: border-box;
+}
+
+/* Add Student Card (Flippable) */
+.add-student-card {
+  width: 250px; /* Match student card width */
+  height: 250px; /* Match student card height */
+  perspective: 1000px;
+  position: relative; /* For positioning the flip button */
+}
+
+.add-student-card .card-inner {
   position: relative;
   width: 100%;
   height: 100%;
-  text-align: center;
-  transition: transform 0.6s;
   transform-style: preserve-3d;
+  transition: transform 0.6s;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   background: white;
 }
 
-body.dark-mode .card-inner {
-  background: #333;
-  color: white;
-}
-
-.student-card.flipped .card-inner {
+.add-student-card.flipped .card-inner {
   transform: rotateY(180deg);
 }
 
-.card-front,
-.card-back {
+.add-student-card .card-front,
+.add-student-card .card-back {
   position: absolute;
   width: 100%;
   height: 100%;
   backface-visibility: hidden;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   border-radius: 10px;
-  padding: 10px;
-  box-sizing: border-box;
 }
 
-.card-front {
+.add-student-card .card-front {
   background: white;
 }
 
-body.dark-mode .card-front {
-  background: #333;
-}
-
-.card-back {
-  background: #f0f0f0;
+.add-student-card .card-back {
+  background: white;
   transform: rotateY(180deg);
-  justify-content: flex-start;
-  align-items: center;
-  overflow-y: auto; /* Enable vertical scrolling */
-  overflow-x: hidden; /* Disable horizontal scrolling */
 }
 
-body.dark-mode .card-back {
-  background: #444;
+body.dark-mode .add-student-card .card-inner,
+body.dark-mode .add-student-card .card-front,
+body.dark-mode .add-student-card .card-back {
+  background: #333 !important;
 }
 
-.student-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 14px;
-  color: #333;
-  text-align: left;
+/* Add Student Button */
+.add-student-btn {
   width: 100%;
-}
-
-body.dark-mode .student-info {
-  color: white;
-}
-
-.add-marks-btn {
-  position: absolute;
-  bottom: 15px;
-  right: 10px;
-  background: #28a745;
-  color: white;
+  height: 100%;
+  background: transparent; /* Remove background as it's handled by card-front */
   border: none;
-  padding: 6px 12px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100px;
-  height: 35px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  font-size: 16px;
+  cursor: pointer;
+  transition: color 0.3s;
 }
 
-.add-marks-btn:hover {
-  background-color: #218838;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+.add-student-btn:hover {
+  color: #007bff; /* Hover effect */
 }
 
-body.dark-mode .add-marks-btn {
-  background-color: #444;
-  color: #fff;
+body.dark-mode .add-student-btn {
+  color: white !important;
 }
 
-/* Delete Button Styles */
-.delete-btn {
+body.dark-mode .add-student-btn:hover {
+  color: #00c6ff !important;
+}
+
+/* Flip Button (Cycle Icon) */
+.flip-btn {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -128,69 +269,261 @@ body.dark-mode .add-marks-btn {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.delete-btn:hover {
-  color: #ff4d4d;
+.flip-btn:hover {
+  color: #007bff;
   background: rgba(255, 255, 255, 1);
 }
 
-body.dark-mode .delete-btn {
+body.dark-mode .flip-btn {
   background: rgba(255, 255, 255, 0.1);
   color: #ccc;
 }
 
-body.dark-mode .delete-btn:hover {
-  color: #ff4d4d;
+body.dark-mode .flip-btn:hover {
+  color: #00c6ff;
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Show Details Button */
-.details-btn {
-  background: #007bff;
+/* Import Excel Button */
+.import-excel-btn {
+  background: #28a745;
   color: white;
   border: none;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  margin-bottom: 10px;
+  width: 120px;
+  height: 35px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-.details-btn:hover {
-  background: #0056b3;
+.import-excel-btn:hover {
+  background-color: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
-body.dark-mode .details-btn {
-  background: #00c6ff;
+body.dark-mode .import-excel-btn {
+  background-color: #218838;
 }
 
-body.dark-mode .details-btn:hover {
-  background: #0096cc;
+body.dark-mode .import-excel-btn:hover {
+  background-color: #1e7e34;
 }
 
-/* Chart Container */
-.chart-container {
-  min-height: 200px;
-  width: 100%;
+/* Ensure the plus icon is white in dark mode */
+body.dark-mode .add-student-btn .plus-icon {
+  color: white !important;
 }
 
-/* Ensure the chart canvas fits within the container */
-.chart-container canvas {
-  max-width: 100% !important;
-  width: 100% !important;
-  height: 100% !important;
-  display: block !important;
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  display: block;
 }
 
-.card-back h3 {
-  font-size: 14px;
-  margin: 5px 0;
+/* Modal Content */
+.modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, #ffffff, #f0f4f8);
+  padding: 15px;
+  padding-bottom: 10px;
+  border-radius: 15px;
+  box-shadow: 0 8px 32px rgba(0, 123, 255, 0.2), 0 0 20px rgba(0, 191, 255, 0.1);
+  width: 350px;
+  max-width: 90%;
+  max-height: 70vh;
+  height: auto;
+  z-index: 1002;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow-y: auto;
+  animation: fadeIn 0.3s ease-in-out;
+  display: block;
 }
 
-.card-back p {
+body.dark-mode .modal {
+  background: linear-gradient(135deg, #2a2a2a, #1e1e1e);
+  color: white;
+  box-shadow: 0 8px 32px rgba(0, 191, 255, 0.2), 0 0 20px rgba(0, 191, 255, 0.1);
+}
+
+/* Fade-in Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Modal Title */
+.modal h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  text-align: center;
+  color: #333;
+  font-weight: 600;
+}
+
+body.dark-mode .modal h2 {
+  color: #fff;
+}
+
+/* Close Button */
+.close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.3s;
+  margin: 0;
+}
+
+.close-btn:hover {
+  color: #ff4d4d;
+}
+
+body.dark-mode .close-btn {
+  color: #ccc;
+}
+
+body.dark-mode .close-btn:hover {
+  color: #ff4d4d;
+}
+
+/* Modal Form */
+.modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+/* Form Inputs */
+.modal input {
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
   font-size: 12px;
-  margin: 3px 0;
+  background: rgba(255, 255, 255, 0.8);
+  color: #333 !important;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  margin: 0;
+}
+
+.modal input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.2);
+}
+
+body.dark-mode .modal input {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff !important;
+  border-color: #666;
+}
+
+body.dark-mode .modal input:focus {
+  border-color: #00c6ff;
+  box-shadow: 0 0 8px rgba(0, 198, 255, 0.2);
+}
+
+/* Save Button */
+.modal button[type="submit"] {
+  background: #28a745;
+  color: white;
+  padding: 6px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.3s, transform 0.1s;
+  margin: 0;
+  margin-top: 6px;
+}
+
+.modal button[type="submit"]:hover {
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.modal button[type="submit"]:active {
+  transform: translateY(0);
+}
+
+/* No Students Message */
+.no-students-message {
+  text-align: center;
+  font-size: 16px;
+  color: #666;
+  margin: 15px 0;
+}
+
+body.dark-mode .no-students-message {
+  color: #ccc !important;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .student-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .student-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .student-cards {
+    grid-template-columns: repeat(1, 1fr);
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .header-nav {
+    justify-content: center;
+  }
+
+  .dashboard-header h2 {
+    margin-right: 0;
+    margin-bottom: 10px;
+  }
+
+  .export-buttons {
+    justify-content: center;
+  }
 }

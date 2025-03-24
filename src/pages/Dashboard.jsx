@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FaMoon, FaSun, FaFileExcel, FaFilePdf, FaPlus, FaTimes, FaTrash, FaEye, FaFileImport } from "react-icons/fa";
+import { FaMoon, FaSun, FaFileExcel, FaFilePdf, FaPlus, FaTimes, FaTrash, FaEye, FaFileImport, FaSyncAlt } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -55,7 +55,7 @@ const Dashboard = () => {
   const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
   const [loading, setLoading] = useState(false);
   const [renderKey, setRenderKey] = useState(0);
-  const [isAddStudentFlipped, setIsAddStudentFlipped] = useState(false); // New state for flipping Add Student button
+  const [isAddStudentFlipped, setIsAddStudentFlipped] = useState(false);
 
   const baseUrl = process.env.NODE_ENV === "development"
     ? "http://localhost:5000/api"
@@ -682,7 +682,8 @@ const Dashboard = () => {
     };
   };
 
-  const toggleAddStudentFlip = () => {
+  const toggleAddStudentFlip = (e) => {
+    e.stopPropagation();
     setIsAddStudentFlipped((prev) => !prev);
   };
 
@@ -849,14 +850,21 @@ const Dashboard = () => {
           })
         )}
 
-        <div
-          className={`add-student-card ${isAddStudentFlipped ? "flipped" : ""}`}
-          onClick={toggleAddStudentFlip}
-        >
+        <div className={`add-student-card ${isAddStudentFlipped ? "flipped" : ""}`}>
           <div className="card-inner">
             <div className="card-front">
-              <button className="add-student-btn" onClick={(e) => { e.stopPropagation(); openAddStudentModal(e); }} disabled={loading}>
+              <button
+                className="add-student-btn"
+                onClick={(e) => { e.stopPropagation(); openAddStudentModal(e); }}
+                disabled={loading}
+              >
                 <FaPlus className="plus-icon" /> Add Student
+              </button>
+              <button
+                className="flip-btn"
+                onClick={toggleAddStudentFlip}
+              >
+                <FaSyncAlt />
               </button>
             </div>
             <div className="card-back">
@@ -870,6 +878,12 @@ const Dashboard = () => {
                   disabled={loading}
                 />
               </label>
+              <button
+                className="flip-btn"
+                onClick={toggleAddStudentFlip}
+              >
+                <FaSyncAlt />
+              </button>
             </div>
           </div>
         </div>

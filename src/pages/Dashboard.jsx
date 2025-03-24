@@ -850,43 +850,52 @@ const Dashboard = () => {
           })
         )}
 
-        <div className={`add-student-card ${isAddStudentFlipped ? "flipped" : ""}`}>
-          <div className="card-inner">
-            <div className="card-front">
-              <button
-                className="add-student-btn"
-                onClick={(e) => { e.stopPropagation(); openAddStudentModal(e); }}
+<div className={`add-student-card ${isAddStudentFlipped ? "flipped" : ""}`}>
+  <div className="card-inner">
+    <div className="card-front">
+      <button
+        className="flip-btn"
+        onClick={toggleAddStudentFlip}
+      >
+        <FaSyncAlt />
+      </button>
+      <div className="student-info">
+        <span><strong>Add a new student</strong></span>
+      </div>
+      <button
+          className="add-marks-btn"
+          onClick={(e) => { e.stopPropagation(); openAddStudentModal(e); }}
+          disabled={loading}
+        >
+          <span className="add-marks-text">+ Add Student</span>
+        </button>
+        <button
+          className="details-btn"
+          disabled
+        >
+          <FaEye /> Show Details
+        </button>
+      </div>
+      <div className="card-back">
+        <button
+          className="flip-btn"
+          onClick={toggleAddStudentFlip}
+        >
+          <FaSyncAlt />
+        </button>
+          <label className="import-excel-btn">
+            <FaFileImport /> Import Excel
+              <input
+                type="file"
+                accept=".xlsx, .xls"
+                onChange={handleImportExcel}
+                style={{ display: "none" }}
                 disabled={loading}
-              >
-                <FaPlus className="plus-icon" /> Add Student
-              </button>
-              <button
-                className="flip-btn"
-                onClick={toggleAddStudentFlip}
-              >
-                <FaSyncAlt />
-              </button>
-            </div>
-            <div className="card-back">
-              <label className="import-excel-btn">
-                <FaFileImport /> Import Excel
-                <input
-                  type="file"
-                  accept=".xlsx, .xls"
-                  onChange={handleImportExcel}
-                  style={{ display: "none" }}
-                  disabled={loading}
-                />
-              </label>
-              <button
-                className="flip-btn"
-                onClick={toggleAddStudentFlip}
-              >
-                <FaSyncAlt />
-              </button>
-            </div>
+              />
+            </label>
           </div>
         </div>
+      </div>
       </div>
 
       {isModalOpen && (

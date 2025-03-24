@@ -164,20 +164,16 @@ const Dashboard = () => {
       console.log(`CO data for student ${studentId}:`, response.data);
     } catch (error) {
       console.error(`Error fetching CO data for student ${studentId}:`, error);
-      if (error.response?.status === 404) {
-        console.warn(`CO data not found for student ${studentId}. Setting empty CO data.`);
-        setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [] } }));
-      } else if (error.response?.status === 401) {
+      if (error.response?.status === 401) {
         alert("Session expired! Please log in again.");
         localStorage.removeItem("token");
         navigate("/login");
         return;
-      } else if (retryCount < 2) {
+      }
+      setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [] } }));
+      if (retryCount < 2) {
         console.log(`Retrying fetchCoData for student ${studentId} (attempt ${retryCount + 1})...`);
         setTimeout(() => fetchCoData(studentId, retryCount + 1), 1000);
-      } else {
-        console.warn(`Failed to fetch CO data for student ${studentId} after retries. Setting empty CO data.`);
-        setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [] } }));
       }
     } finally {
       setCoLoading((prev) => ({ ...prev, [studentId]: false }));
@@ -752,19 +748,51 @@ const Dashboard = () => {
                                 options={{
                                   responsive: true,
                                   maintainAspectRatio: false,
+                                  layout: {
+                                    padding: {
+                                      left: 10,
+                                      right: 10,
+                                      top: 10,
+                                      bottom: 10,
+                                    },
+                                  },
                                   plugins: {
                                     legend: {
                                       position: "top",
+                                      labels: {
+                                        font: {
+                                          size: 10,
+                                        },
+                                      },
                                     },
                                     title: {
                                       display: true,
                                       text: "Historical Performance",
+                                      font: {
+                                        size: 14,
+                                      },
                                     },
                                   },
                                   scales: {
+                                    x: {
+                                      ticks: {
+                                        autoSkip: true,
+                                        maxRotation: 0,
+                                        minRotation: 0,
+                                        font: {
+                                          size: 10,
+                                        },
+                                      },
+                                    },
                                     y: {
                                       beginAtZero: true,
                                       max: 100,
+                                      ticks: {
+                                        font: {
+                                          size: 10,
+                                        },
+                                        stepSize: 25,
+                                      },
                                     },
                                   },
                                 }}
@@ -789,19 +817,51 @@ const Dashboard = () => {
                                 options={{
                                   responsive: true,
                                   maintainAspectRatio: false,
+                                  layout: {
+                                    padding: {
+                                      left: 10,
+                                      right: 10,
+                                      top: 10,
+                                      bottom: 10,
+                                    },
+                                  },
                                   plugins: {
                                     legend: {
                                       position: "top",
+                                      labels: {
+                                        font: {
+                                          size: 10,
+                                        },
+                                      },
                                     },
                                     title: {
                                       display: true,
                                       text: "CO/PO Attainment",
+                                      font: {
+                                        size: 14,
+                                      },
                                     },
                                   },
                                   scales: {
+                                    x: {
+                                      ticks: {
+                                        autoSkip: true,
+                                        maxRotation: 0,
+                                        minRotation: 0,
+                                        font: {
+                                          size: 10,
+                                        },
+                                      },
+                                    },
                                     y: {
                                       beginAtZero: true,
                                       max: 100,
+                                      ticks: {
+                                        font: {
+                                          size: 10,
+                                        },
+                                        stepSize: 25,
+                                      },
                                     },
                                   },
                                 }}
@@ -831,7 +891,7 @@ const Dashboard = () => {
             <button className="close-btn" onClick={() => setIsModalOpen(false)}>
               ❌
             </button>
-            <h3>{modalType === "add" ? "Add Student" : "Add Marks"}</h3>
+            <h2>{modalType === "add" ? "Add Student" : "Add Marks"}</h2>
             <form onSubmit={handleSubmit}>
               {modalType === "add" && (
                 <>

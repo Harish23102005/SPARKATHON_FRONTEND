@@ -34,7 +34,7 @@ const Dashboard = () => {
   const [students, setStudents] = useState([]);
   const [darkMode, setDarkMode] = useState(false);
   const [flippedCards, setFlippedCards] = useState({});
-  const [renderKeys, setRenderKeys] = useState({}); // New state to manage render keys for each student
+  const [renderKeys, setRenderKeys] = useState({});
   const [showDetails, setShowDetails] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState("add");
@@ -101,7 +101,6 @@ const Dashboard = () => {
       }));
       setStudents(studentsWithAverage);
 
-      // Initialize renderKeys for each student
       const initialRenderKeys = studentsWithAverage.reduce((acc, student) => {
         acc[student.student_id] = 0;
         return acc;
@@ -276,7 +275,6 @@ const Dashboard = () => {
     setFlippedCards((prev) => {
       const newFlippedState = { ...prev, [studentId]: !prev[studentId] };
       if (newFlippedState[studentId]) {
-        // Update renderKey for this student when the card is flipped
         setRenderKeys((prevKeys) => ({
           ...prevKeys,
           [studentId]: (prevKeys[studentId] || 0) + 1,
@@ -610,12 +608,20 @@ const Dashboard = () => {
 
     const labels = marks.map((m, index) => m.year || `Entry ${index + 1}`);
     const internalData = marks.map((m) => {
-      const percentage = (m.internal / (m.totalInternal || 1)) * 100;
-      return isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
+      const internal = parseFloat(m.internal) || 0;
+      const totalInternal = parseFloat(m.totalInternal) || 1;
+      const percentage = (internal / totalInternal) * 100;
+      const result = isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
+      console.log(`Student ${student.student_id} - Internal: ${internal}, Total Internal: ${totalInternal}, Percentage: ${result}`);
+      return result;
     });
     const examData = marks.map((m) => {
-      const percentage = (m.exam / (m.totalExam || 1)) * 100;
-      return isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
+      const exam = parseFloat(m.exam) || 0;
+      const totalExam = parseFloat(m.totalExam) || 1;
+      const percentage = (exam / totalExam) * 100;
+      const result = isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
+      console.log(`Student ${student.student_id} - Exam: ${exam}, Total Exam: ${totalExam}, Percentage: ${result}`);
+      return result;
     });
 
     console.log(`Historical Chart Data - Labels: ${labels}, Internal: ${internalData}, Exam: ${examData}`);

@@ -173,13 +173,8 @@ body.dark-mode .details-btn:hover {
 
 /* Chart Container */
 .chart-container {
+  min-height: 200px;
   width: 100%;
-  height: 100px; /* Match the height from the desired screenshot */
-  min-height: 100px;
-  position: relative;
-  overflow-x: hidden;
-  display: block;
-  background-color: #f0f0f0; /* Add a background color to make the container visible */
 }
 
 /* Ensure the chart canvas fits within the container */

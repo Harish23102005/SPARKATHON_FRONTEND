@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FaMoon, FaSun, FaFileExcel, FaFilePdf, FaPlus, FaTimes, FaTrash, FaEye } from "react-icons/fa";
+import { FaMoon, FaSun, FaFileExcel, FaFilePdf, FaPlus, FaTimes, FaTrash, FaEye, FaFileImport } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -54,7 +54,8 @@ const Dashboard = () => {
   const [coLoading, setCoLoading] = useState({});
   const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
   const [loading, setLoading] = useState(false);
-  const [renderKey, setRenderKey] = useState(0); // Moved renderKey to component level
+  const [renderKey, setRenderKey] = useState(0);
+  const [isAddStudentFlipped, setIsAddStudentFlipped] = useState(false); // New state for flipping Add Student button
 
   const baseUrl = process.env.NODE_ENV === "development"
     ? "http://localhost:5000/api"
@@ -84,8 +85,6 @@ const Dashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("Raw students response:", response.data);
-
       const validStudents = response.data.filter(student => {
         const isValid = student.student_id && typeof student.student_id === "string" && student.student_id.trim() !== "";
         if (!isValid) {
@@ -93,7 +92,6 @@ const Dashboard = () => {
         }
         return isValid;
       });
-      console.log("Fetched students:", validStudents);
 
       const studentsWithAverage = validStudents.map(student => ({
         ...student,
@@ -116,7 +114,6 @@ const Dashboard = () => {
         return;
       }
       if (retryCount < 2) {
-        console.log(`Retrying fetchStudents (attempt ${retryCount + 1})...`);
         setTimeout(() => fetchStudents(retryCount + 1), 1000);
       } else {
         alert(error.response?.data?.error || "Failed to fetch students after retries.");
@@ -128,7 +125,6 @@ const Dashboard = () => {
 
   const fetchCoData = async (studentId, retryCount = 0) => {
     if (!studentId || typeof studentId !== "string" || studentId.trim() === "") {
-      console.warn("Skipping CO fetch: studentId is invalid", studentId);
       setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [], error: "Invalid student ID" } }));
       setCoLoading((prev) => ({ ...prev, [studentId]: false }));
       return;
@@ -139,31 +135,17 @@ const Dashboard = () => {
       if (!token) {
         throw new Error("No token found");
       }
-      const url = `${baseUrl}/students/calculate-co-po/${studentId}`;
-      console.log(`Fetching CO data from: ${url}`);
-      const response = await axios.get(url, {
+      const response = await axios.get(`${baseUrl}/students/calculate-co-po/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.data || typeof response.data !== "object") {
-        throw new Error("Invalid CO data response: Response data is not an object");
-      }
       setCoData((prev) => ({ ...prev, [studentId]: response.data }));
-      console.log(`CO data for student ${studentId}:`, response.data);
     } catch (error) {
       console.error(`Error fetching CO data for student ${studentId}:`, error);
-      console.error(`Failed URL: ${baseUrl}/students/calculate-co-po/${studentId}`);
-      if (error.response?.status === 401) {
-        alert("Session expired! Please log in again.");
-        localStorage.removeItem("token");
-        navigate("/login");
-        return;
-      }
       setCoData((prev) => ({
         ...prev,
         [studentId]: { coSummary: [], error: error.message || "Failed to fetch CO data" },
       }));
       if (retryCount < 2) {
-        console.log(`Retrying fetchCoData for student ${studentId} (attempt ${retryCount + 1})...`);
         setTimeout(() => fetchCoData(studentId, retryCount + 1), 1000);
       }
     } finally {
@@ -268,7 +250,6 @@ const Dashboard = () => {
     }
     setFlippedCards((prev) => {
       const newFlippedState = { ...prev, [studentId]: !prev[studentId] };
-      // Update renderKey when any card is flipped
       setRenderKey((prev) => prev + 1);
       return newFlippedState;
     });
@@ -434,7 +415,6 @@ const Dashboard = () => {
             target: parseFloat(target.target) || 70,
           })),
         };
-        console.log("Submitting new student:", newStudent);
         await axios.post(`${baseUrl}/students`, newStudent, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -495,6 +475,88 @@ const Dashboard = () => {
     }
   };
 
+  const handleImportExcel = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("No token found");
+      }
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+        const studentsToAdd = jsonData.map((row) => {
+          const coMapping = [];
+          const coTargets = [];
+          let coIndex = 1;
+
+          // Dynamically extract CO data
+          while (row[`CO${coIndex}_internal`] !== undefined) {
+            const coId = `CO${coIndex}`;
+            coMapping.push({
+              coId,
+              internal: parseFloat(row[`${coId}_internal`]) || 0,
+              exam: parseFloat(row[`${coId}_exam`]) || 0,
+              totalInternal: parseFloat(row[`${coId}_totalInternal`]) || 0,
+              totalExam: parseFloat(row[`${coId}_totalExam`]) || 0,
+            });
+            coTargets.push({
+              coId,
+              target: parseFloat(row[`${coId}_target`]) || 70,
+            });
+            coIndex++;
+          }
+
+          return {
+            studentId: row.studentId,
+            name: row.name,
+            department: row.department,
+            marks: [
+              {
+                year: row.year || new Date().getFullYear().toString(),
+                internal: parseFloat(row.internalMarks) || 0,
+                exam: parseFloat(row.examMarks) || 0,
+                totalInternal: parseFloat(row.totalInternal) || 0,
+                totalExam: parseFloat(row.totalExam) || 0,
+                coMapping: coMapping.length > 0 ? coMapping : [{ coId: "CO1", internal: 0, exam: 0, totalInternal: 0, totalExam: 0 }],
+              },
+            ],
+            courseOutcomes: coTargets.length > 0 ? coTargets : [{ coId: "CO1", target: 70 }],
+          };
+        });
+
+        for (const student of studentsToAdd) {
+          await axios.post(`${baseUrl}/students`, student, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+
+        alert("Students imported successfully!");
+        fetchStudents();
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error("Error importing Excel:", error);
+      if (error.response?.status === 401) {
+        alert("Session expired! Please log in again.");
+        localStorage.removeItem("token");
+        navigate("/login");
+        return;
+      }
+      alert(error.response?.data?.error || "Failed to import students.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const calculateStudentAverage = (student) => {
     if (!student.Marks || student.Marks.length === 0) {
       return "N/A";
@@ -519,9 +581,7 @@ const Dashboard = () => {
 
   const historicalChartData = (student) => {
     const marks = student?.Marks || [];
-    console.log(`Historical Chart Data for student ${student?.student_id || 'unknown'}:`, marks);
     if (!marks || marks.length === 0) {
-      console.log(`No marks data for student ${student?.student_id || 'unknown'}`);
       return {
         labels: ["No Data"],
         datasets: [
@@ -545,41 +605,9 @@ const Dashboard = () => {
       };
     }
 
-    const labels = marks.map((m, index) => {
-      if (!m || typeof m !== "object") {
-        console.warn(`Invalid mark entry for student ${student?.student_id || 'unknown'} at index ${index}:`, m);
-        return `Entry ${index + 1}`;
-      }
-      return m.year || `Entry ${index + 1}`;
-    });
-
-    const internalData = marks.map((m, index) => {
-      if (!m || typeof m !== "object") {
-        console.warn(`Invalid mark entry for internal data at index ${index}:`, m);
-        return 0;
-      }
-      const percentage = (m.internal / (m.totalInternal || 1)) * 100;
-      if (isNaN(percentage) || !isFinite(percentage)) {
-        console.warn(`Invalid internal percentage for student ${student?.student_id || 'unknown'} at index ${index}:`, { internal: m.internal, totalInternal: m.totalInternal });
-        return 0;
-      }
-      return percentage;
-    });
-
-    const examData = marks.map((m, index) => {
-      if (!m || typeof m !== "object") {
-        console.warn(`Invalid mark entry for exam data at index ${index}:`, m);
-        return 0;
-      }
-      const percentage = (m.exam / (m.totalExam || 1)) * 100;
-      if (isNaN(percentage) || !isFinite(percentage)) {
-        console.warn(`Invalid exam percentage for student ${student?.student_id || 'unknown'} at index ${index}:`, { exam: m.exam, totalExam: m.totalExam });
-        return 0;
-      }
-      return percentage;
-    });
-
-    console.log(`Historical Chart Data for student ${student?.student_id || 'unknown'} - Labels: ${labels}, Internal: ${internalData}, Exam: ${examData}`);
+    const labels = marks.map((m, index) => m.year || `Entry ${index + 1}`);
+    const internalData = marks.map((m) => (m.internal / (m.totalInternal || 1)) * 100);
+    const examData = marks.map((m) => (m.exam / (m.totalExam || 1)) * 100);
 
     return {
       labels,
@@ -605,27 +633,9 @@ const Dashboard = () => {
   };
 
   const coChartData = (studentId) => {
-    const data = coData[studentId] || { coSummary: [], error: null };
-    if (data.error) {
-      console.log(`CO Chart Data error for student ${studentId}:`, data.error);
-      return {
-        labels: ["Error"],
-        datasets: [
-          {
-            label: "Attainment (%)",
-            data: [0],
-            backgroundColor: "rgba(255, 99, 132, 0.6)",
-            borderColor: "rgba(255, 99, 132, 1)",
-            borderWidth: 1,
-            barThickness: 20,
-          },
-        ],
-      };
-    }
+    const data = coData[studentId] || { coSummary: [] };
     const coSummary = Array.isArray(data.coSummary) ? data.coSummary : [];
-    console.log(`CO Chart Data for student ${studentId}:`, coSummary);
-    if (!coSummary || coSummary.length === 0) {
-      console.log(`No CO data for student ${studentId}`);
+    if (!coSummary.length) {
       return {
         labels: ["No Data"],
         datasets: [
@@ -641,35 +651,12 @@ const Dashboard = () => {
       };
     }
 
-    const labels = coSummary.map((co, index) => {
-      if (!co || typeof co !== "object") {
-        console.warn(`Invalid CO entry for student ${studentId} at index ${index}:`, co);
-        return `CO${index + 1}`;
-      }
-      return co.coId || `CO${index + 1}`;
-    });
-
-    const dataValues = coSummary.map((co, index) => {
-      if (!co || typeof co !== "object") {
-        console.warn(`Invalid CO entry for data values at index ${index}:`, co);
-        return 0;
-      }
-      const attainment = co.avgAttainment || 0;
-      if (isNaN(attainment) || !isFinite(attainment)) {
-        console.warn(`Invalid CO attainment for student ${studentId} at index ${index}:`, co);
-        return 0;
-      }
-      return attainment;
-    });
-
-    console.log(`CO Chart Data for student ${studentId} - Labels: ${labels}, Data: ${dataValues}`);
-
     return {
-      labels,
+      labels: coSummary.map((co) => co.coId),
       datasets: [
         {
           label: "Attainment (%)",
-          data: dataValues,
+          data: coSummary.map((co) => co.avgAttainment || 0),
           backgroundColor: "rgba(40, 167, 69, 0.6)",
           borderColor: "rgba(40, 167, 69, 1)",
           borderWidth: 1,
@@ -681,35 +668,11 @@ const Dashboard = () => {
 
   const calculateThreeYearComparison = (student) => {
     const recentMarks = student?.Marks?.slice(-3) || [];
-    console.log(`Calculating 3-Year Comparison for student ${student?.student_id || 'unknown'}:`, recentMarks);
-    const avgInternal = recentMarks.reduce((sum, m) => {
-      if (!m || typeof m !== "object") {
-        console.warn(`Invalid mark entry for avgInternal:`, m);
-        return sum;
-      }
-      const percentage = (m.internal / (m.totalInternal || 1)) * 100;
-      return sum + (isNaN(percentage) || !isFinite(percentage) ? 0 : percentage);
-    }, 0) / (recentMarks.length || 1) || 0;
-
-    const avgExam = recentMarks.reduce((sum, m) => {
-      if (!m || typeof m !== "object") {
-        console.warn(`Invalid mark entry for avgExam:`, m);
-        return sum;
-      }
-      const percentage = (m.exam / (m.totalExam || 1)) * 100;
-      return sum + (isNaN(percentage) || !isFinite(percentage) ? 0 : percentage);
-    }, 0) / (recentMarks.length || 1) || 0;
-
+    const avgInternal = recentMarks.reduce((sum, m) => sum + (m.internal / (m.totalInternal || 1)) * 100, 0) / (recentMarks.length || 1) || 0;
+    const avgExam = recentMarks.reduce((sum, m) => sum + (m.exam / (m.totalExam || 1)) * 100, 0) / (recentMarks.length || 1) || 0;
     const latest = recentMarks[recentMarks.length - 1] || { internal: 0, totalInternal: 1, exam: 0, totalExam: 1 };
     const currentInternal = (latest.internal / (latest.totalInternal || 1)) * 100 || 0;
     const currentExam = (latest.exam / (latest.totalExam || 1)) * 100 || 0;
-
-    console.log(`3-Year Comparison for student ${student?.student_id || 'unknown'}:`, {
-      avgInternal,
-      avgExam,
-      currentInternal,
-      currentExam,
-    });
 
     return {
       avgInternal: avgInternal.toFixed(2),
@@ -717,6 +680,10 @@ const Dashboard = () => {
       internalAboveAvg: currentInternal > avgInternal ? "Above" : "Below",
       examAboveAvg: currentExam > avgExam ? "Above" : "Below",
     };
+  };
+
+  const toggleAddStudentFlip = () => {
+    setIsAddStudentFlipped((prev) => !prev);
   };
 
   return (
@@ -834,53 +801,11 @@ const Dashboard = () => {
                                 options={{
                                   responsive: true,
                                   maintainAspectRatio: false,
-                                  layout: {
-                                    padding: {
-                                      left: 10,
-                                      right: 10,
-                                      top: 10,
-                                      bottom: 10,
-                                    },
-                                  },
                                   plugins: {
-                                    legend: {
-                                      position: "top",
-                                      labels: {
-                                        font: {
-                                          size: 10,
-                                        },
-                                      },
-                                    },
-                                    title: {
-                                      display: true,
-                                      text: "Performance Trends",
-                                      font: {
-                                        size: 14,
-                                      },
-                                    },
+                                    legend: { position: "top" },
+                                    title: { display: true, text: "Performance Trends" },
                                   },
-                                  scales: {
-                                    x: {
-                                      ticks: {
-                                        autoSkip: true,
-                                        maxRotation: 0,
-                                        minRotation: 0,
-                                        font: {
-                                          size: 10,
-                                        },
-                                      },
-                                    },
-                                    y: {
-                                      beginAtZero: true,
-                                      max: 100,
-                                      ticks: {
-                                        font: {
-                                          size: 10,
-                                        },
-                                        stepSize: 25,
-                                      },
-                                    },
-                                  },
+                                  scales: { y: { beginAtZero: true, max: 100 } },
                                 }}
                               />
                             </ChartErrorBoundary>
@@ -903,53 +828,11 @@ const Dashboard = () => {
                                 options={{
                                   responsive: true,
                                   maintainAspectRatio: false,
-                                  layout: {
-                                    padding: {
-                                      left: 10,
-                                      right: 10,
-                                      top: 10,
-                                      bottom: 10,
-                                    },
-                                  },
                                   plugins: {
-                                    legend: {
-                                      position: "top",
-                                      labels: {
-                                        font: {
-                                          size: 10,
-                                        },
-                                      },
-                                    },
-                                    title: {
-                                      display: true,
-                                      text: "CO/PO Attainment",
-                                      font: {
-                                        size: 14,
-                                      },
-                                    },
+                                    legend: { position: "top" },
+                                    title: { display: true, text: "CO/PO Attainment" },
                                   },
-                                  scales: {
-                                    x: {
-                                      ticks: {
-                                        autoSkip: true,
-                                        maxRotation: 0,
-                                        minRotation: 0,
-                                        font: {
-                                          size: 10,
-                                        },
-                                      },
-                                    },
-                                    y: {
-                                      beginAtZero: true,
-                                      max: 100,
-                                      ticks: {
-                                        font: {
-                                          size: 10,
-                                        },
-                                        stepSize: 25,
-                                      },
-                                    },
-                                  },
+                                  scales: { y: { beginAtZero: true, max: 100 } },
                                 }}
                               />
                             </ChartErrorBoundary>
@@ -966,9 +849,30 @@ const Dashboard = () => {
           })
         )}
 
-        <button className="add-student-btn" onClick={(e) => openAddStudentModal(e)} disabled={loading}>
-          <FaPlus className="plus-icon" /> Add Student
-        </button>
+        <div
+          className={`add-student-card ${isAddStudentFlipped ? "flipped" : ""}`}
+          onClick={toggleAddStudentFlip}
+        >
+          <div className="card-inner">
+            <div className="card-front">
+              <button className="add-student-btn" onClick={(e) => { e.stopPropagation(); openAddStudentModal(e); }} disabled={loading}>
+                <FaPlus className="plus-icon" /> Add Student
+              </button>
+            </div>
+            <div className="card-back">
+              <label className="import-excel-btn">
+                <FaFileImport /> Import Excel
+                <input
+                  type="file"
+                  accept=".xlsx, .xls"
+                  onChange={handleImportExcel}
+                  style={{ display: "none" }}
+                  disabled={loading}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
 
       {isModalOpen && (

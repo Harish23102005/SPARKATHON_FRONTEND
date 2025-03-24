@@ -179,6 +179,7 @@ body.dark-mode .details-btn:hover {
   position: relative;
   overflow-x: hidden;
   display: block;
+  background-color: #f0f0f0; /* Add a background color to make the container visible */
 }
 
 /* Ensure the chart canvas fits within the container */

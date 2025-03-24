@@ -13,6 +13,39 @@ import "./StudentCard.css";
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
+// Error Boundary Component
+class ChartErrorBoundary extends React.Component {
+  state = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <p>Failed to render chart: {this.state.error?.message || "Unknown error"}</p>;
+    }
+    return this.props.children;
+  }
+}
+
+// Custom hook to force chart re-rendering
+const useChartRender = (isFlipped) => {
+  const [renderKey, setRenderKey] = useState(0);
+
+  useEffect(() => {
+    if (isFlipped) {
+      // Delay the re-render to ensure the DOM is ready after the flip animation
+      const timer = setTimeout(() => {
+        setRenderKey((prev) => prev + 1);
+      }, 600); // Match the flip animation duration (0.6s)
+      return () => clearTimeout(timer);
+    }
+  }, [isFlipped]);
+
+  return renderKey;
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
@@ -131,16 +164,20 @@ const Dashboard = () => {
       console.log(`CO data for student ${studentId}:`, response.data);
     } catch (error) {
       console.error(`Error fetching CO data for student ${studentId}:`, error);
-      if (error.response?.status === 401) {
+      if (error.response?.status === 404) {
+        console.warn(`CO data not found for student ${studentId}. Setting empty CO data.`);
+        setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [] } }));
+      } else if (error.response?.status === 401) {
         alert("Session expired! Please log in again.");
         localStorage.removeItem("token");
         navigate("/login");
         return;
-      }
-      setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [] } }));
-      if (retryCount < 2) {
+      } else if (retryCount < 2) {
         console.log(`Retrying fetchCoData for student ${studentId} (attempt ${retryCount + 1})...`);
         setTimeout(() => fetchCoData(studentId, retryCount + 1), 1000);
+      } else {
+        console.warn(`Failed to fetch CO data for student ${studentId} after retries. Setting empty CO data.`);
+        setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [] } }));
       }
     } finally {
       setCoLoading((prev) => ({ ...prev, [studentId]: false }));
@@ -510,12 +547,15 @@ const Dashboard = () => {
         ],
       };
     }
+    const labels = coSummary.map((co) => co.coId) || [];
+    const dataValues = coSummary.map((co) => co.avgAttainment || 0) || [];
+    console.log(`CO Chart Data - Labels: ${labels}, Data: ${dataValues}`);
     return {
-      labels: coSummary.map((co) => co.coId) || [],
+      labels,
       datasets: [
         {
           label: "Attainment (%)",
-          data: coSummary.map((co) => co.avgAttainment || 0) || [],
+          data: dataValues,
           backgroundColor: "rgba(40, 167, 69, 0.6)",
           borderColor: "rgba(40, 167, 69, 1)",
           borderWidth: 1,
@@ -555,11 +595,11 @@ const Dashboard = () => {
     const labels = marks.map((m, index) => m.year || `Entry ${index + 1}`);
     const internalData = marks.map((m) => {
       const percentage = (m.internal / (m.totalInternal || 1)) * 100;
-      return isNaN(percentage) ? 0 : percentage;
+      return isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
     });
     const examData = marks.map((m) => {
       const percentage = (m.exam / (m.totalExam || 1)) * 100;
-      return isNaN(percentage) ? 0 : percentage;
+      return isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
     });
 
     console.log(`Historical Chart Data - Labels: ${labels}, Internal: ${internalData}, Exam: ${examData}`);
@@ -656,10 +696,12 @@ const Dashboard = () => {
         ) : (
           filteredStudents.map((student, index) => {
             const threeYearComp = calculateThreeYearComparison(student);
+            const isFlipped = flippedCards[student.student_id];
+            const renderKey = useChartRender(isFlipped);
             return (
               <div
                 key={student.student_id || index}
-                className={`student-card ${flippedCards[student.student_id] ? "flipped" : ""}`}
+                className={`student-card ${isFlipped ? "flipped" : ""}`}
                 onClick={(e) => handleCardClick(e, student.student_id)}
               >
                 <div className="card-inner">
@@ -703,60 +745,31 @@ const Dashboard = () => {
                         <h3>Performance Trends</h3>
                         <div className="chart-container">
                           {student.Marks && student.Marks.length > 0 ? (
-                            <Bar
-                              data={historicalChartData(student)}
-                              options={{
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                layout: {
-                                  padding: {
-                                    left: 10,
-                                    right: 10,
-                                    top: 10,
-                                    bottom: 10,
-                                  },
-                                },
-                                plugins: {
-                                  legend: {
-                                    position: "top",
-                                    labels: {
-                                      font: {
-                                        size: 10,
-                                      },
+                            <ChartErrorBoundary>
+                              <Bar
+                                key={`historical-${student.student_id}-${renderKey}`}
+                                data={historicalChartData(student)}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: {
+                                    legend: {
+                                      position: "top",
+                                    },
+                                    title: {
+                                      display: true,
+                                      text: "Historical Performance",
                                     },
                                   },
-                                  title: {
-                                    display: true,
-                                    text: "Historical Performance",
-                                    font: {
-                                      size: 14,
+                                  scales: {
+                                    y: {
+                                      beginAtZero: true,
+                                      max: 100,
                                     },
                                   },
-                                },
-                                scales: {
-                                  x: {
-                                    ticks: {
-                                      autoSkip: true,
-                                      maxRotation: 0,
-                                      minRotation: 0,
-                                      font: {
-                                        size: 10,
-                                      },
-                                    },
-                                  },
-                                  y: {
-                                    beginAtZero: true,
-                                    max: 100,
-                                    ticks: {
-                                      font: {
-                                        size: 10,
-                                      },
-                                      stepSize: 25,
-                                    },
-                                  },
-                                },
-                              }}
-                            />
+                                }}
+                              />
+                            </ChartErrorBoundary>
                           ) : (
                             <p>No historical data available.</p>
                           )}
@@ -769,60 +782,31 @@ const Dashboard = () => {
                           {coLoading[student.student_id] ? (
                             <p>Loading CO data...</p>
                           ) : coData[student.student_id] && coData[student.student_id].coSummary?.length > 0 ? (
-                            <Bar
-                              data={coChartData(student.student_id)}
-                              options={{
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                layout: {
-                                  padding: {
-                                    left: 10,
-                                    right: 10,
-                                    top: 10,
-                                    bottom: 10,
-                                  },
-                                },
-                                plugins: {
-                                  legend: {
-                                    position: "top",
-                                    labels: {
-                                      font: {
-                                        size: 10,
-                                      },
+                            <ChartErrorBoundary>
+                              <Bar
+                                key={`co-${student.student_id}-${renderKey}`}
+                                data={coChartData(student.student_id)}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: {
+                                    legend: {
+                                      position: "top",
+                                    },
+                                    title: {
+                                      display: true,
+                                      text: "CO/PO Attainment",
                                     },
                                   },
-                                  title: {
-                                    display: true,
-                                    text: "CO/PO Attainment",
-                                    font: {
-                                      size: 14,
+                                  scales: {
+                                    y: {
+                                      beginAtZero: true,
+                                      max: 100,
                                     },
                                   },
-                                },
-                                scales: {
-                                  x: {
-                                    ticks: {
-                                      autoSkip: true,
-                                      maxRotation: 0,
-                                      minRotation: 0,
-                                      font: {
-                                        size: 10,
-                                      },
-                                    },
-                                  },
-                                  y: {
-                                    beginAtZero: true,
-                                    max: 100,
-                                    ticks: {
-                                      font: {
-                                        size: 10,
-                                      },
-                                      stepSize: 25,
-                                    },
-                                  },
-                                },
-                              }}
-                            />
+                                }}
+                              />
+                            </ChartErrorBoundary>
                           ) : (
                             <p>No CO data available yet.</p>
                           )}
@@ -847,7 +831,7 @@ const Dashboard = () => {
             <button className="close-btn" onClick={() => setIsModalOpen(false)}>
               ❌
             </button>
-            <h2>{modalType === "add" ? "Add Student" : "Add Marks"}</h2>
+            <h3>{modalType === "add" ? "Add Student" : "Add Marks"}</h3>
             <form onSubmit={handleSubmit}>
               {modalType === "add" && (
                 <>

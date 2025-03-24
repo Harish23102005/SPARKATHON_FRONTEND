@@ -95,7 +95,7 @@ const Dashboard = () => {
 
       const studentsWithAverage = validStudents.map(student => ({
         ...student,
-        average: student.average || calculateStudentAverage(student),
+        average: calculateStudentAverage(student),
       }));
       setStudents(studentsWithAverage);
 
@@ -141,6 +141,7 @@ const Dashboard = () => {
       setCoData((prev) => ({ ...prev, [studentId]: response.data }));
     } catch (error) {
       console.error(`Error fetching CO data for student ${studentId}:`, error);
+      console.error("Response:", error.response?.data);
       setCoData((prev) => ({
         ...prev,
         [studentId]: { coSummary: [], error: error.message || "Failed to fetch CO data" },
@@ -265,6 +266,7 @@ const Dashboard = () => {
   };
 
   const openAddStudentModal = (e) => {
+    e.stopPropagation();
     setModalType("add");
     setFormData({
       id: "",
@@ -283,6 +285,7 @@ const Dashboard = () => {
   };
 
   const openUpdateMarksModal = (student, e) => {
+    e.stopPropagation();
     setModalType("update");
     setFormData({
       id: student.student_id,
@@ -378,6 +381,21 @@ const Dashboard = () => {
     });
   };
 
+  const calculateStudentAverage = (student) => {
+    if (!student.Marks || student.Marks.length === 0) {
+      return "N/A";
+    }
+
+    const totalMarks = student.Marks.reduce((sum, mark) => {
+      const internalPercentage = (mark.internal / (mark.totalInternal || 1)) * 100;
+      const examPercentage = (mark.exam / (mark.totalExam || 1)) * 100;
+      return sum + (internalPercentage + examPercentage) / 2;
+    }, 0);
+
+    const average = totalMarks / student.Marks.length;
+    return average.toFixed(2);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
@@ -415,54 +433,80 @@ const Dashboard = () => {
             target: parseFloat(target.target) || 70,
           })),
         };
+        console.log("Adding new student payload:", newStudent);
         await axios.post(`${baseUrl}/students`, newStudent, {
           headers: { Authorization: `Bearer ${token}` },
         });
         alert("Student added successfully!");
       } else if (modalType === "update") {
-        const updatedMarks = {
-          marks: [
-            {
-              year: formData.year,
-              internal: parseFloat(formData.internalMarks) || 0,
-              exam: parseFloat(formData.examMarks) || 0,
-              totalInternal: parseFloat(formData.totalInternal) || 0,
-              totalExam: parseFloat(formData.totalExam) || 0,
-              coMapping: formData.coMapping.map((co) => ({
-                coId: co.coId,
-                internal: parseFloat(co.internal) || 0,
-                exam: parseFloat(co.exam) || 0,
-                totalInternal: parseFloat(co.totalInternal) || 0,
-                totalExam: parseFloat(co.totalExam) || 0,
-              })),
-            },
-          ],
+        // Fetch the existing student data
+        const response = await axios.get(`${baseUrl}/students/${editingStudentId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const existingStudent = response.data;
+
+        // Prepare the new marks entry
+        const newMarksEntry = {
+          year: formData.year,
+          internal: parseFloat(formData.internalMarks) || 0,
+          exam: parseFloat(formData.examMarks) || 0,
+          totalInternal: parseFloat(formData.totalInternal) || 0,
+          totalExam: parseFloat(formData.totalExam) || 0,
+          coMapping: formData.coMapping.map((co) => ({
+            coId: co.coId,
+            internal: parseFloat(co.internal) || 0,
+            exam: parseFloat(co.exam) || 0,
+            totalInternal: parseFloat(co.totalInternal) || 0,
+            totalExam: parseFloat(co.totalExam) || 0,
+          })),
         };
+
+        // Append the new marks to the existing marks array
+        const updatedMarks = [...(existingStudent.Marks || []), newMarksEntry];
+
+        // Recalculate the average
+        const updatedStudent = { ...existingStudent, Marks: updatedMarks };
+        const newAverage = calculateStudentAverage(updatedStudent);
+
+        // Update the student with the new marks and average
+        const marksUpdatePayload = {
+          marks: updatedMarks,
+          average: newAverage,
+        };
+        console.log("Updating marks payload:", marksUpdatePayload);
         await axios.put(
           `${baseUrl}/students/${editingStudentId}`,
-          updatedMarks,
+          marksUpdatePayload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+
+        // Update CO/PO data and adjust targets
         const updatedCoData = await axios.get(`${baseUrl}/students/calculate-co-po/${editingStudentId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const adjustedTargets = adjustTargetsAutomatically(formData.coTargets, updatedCoData.data.coSummary);
+
+        // Update course outcomes separately
+        const courseOutcomesPayload = {
+          courseOutcomes: adjustedTargets.map((target) => ({
+            coId: target.coId,
+            target: parseFloat(target.target) || 70,
+          })),
+        };
+        console.log("Updating course outcomes payload:", courseOutcomesPayload);
         await axios.put(
-          `${baseUrl}/students/${editingStudentId}`,
-          {
-            courseOutcomes: adjustedTargets.map((target) => ({
-              coId: target.coId,
-              target: parseFloat(target.target) || 70,
-            })),
-          },
+          `${baseUrl}/students/${editingStudentId}/course-outcomes`,
+          courseOutcomesPayload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+
         alert("Marks updated and targets adjusted successfully!");
       }
       setIsModalOpen(false);
       fetchStudents();
     } catch (error) {
       console.error("Error submitting form:", error);
+      console.error("Response:", error.response?.data);
       if (error.response?.status === 401) {
         alert("Session expired! Please log in again.");
         localStorage.removeItem("token");
@@ -554,21 +598,6 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateStudentAverage = (student) => {
-    if (!student.Marks || student.Marks.length === 0) {
-      return "N/A";
-    }
-
-    const totalMarks = student.Marks.reduce((sum, mark) => {
-      const internalPercentage = (mark.internal / (mark.totalInternal || 1)) * 100;
-      const examPercentage = (mark.exam / (mark.totalExam || 1)) * 100;
-      return sum + (internalPercentage + examPercentage) / 2;
-    }, 0);
-
-    const average = totalMarks / student.Marks.length;
-    return average.toFixed(2);
   };
 
   const filteredStudents = students.filter(
@@ -856,20 +885,13 @@ const Dashboard = () => {
                 <FaSyncAlt />
               </button>
               <div className="student-info">
-                <span style={{ textAlign: "center", width: "100%" }}>
+                <span
+                  style={{ textAlign: "center", width: "100%", cursor: "pointer" }}
+                  onClick={openAddStudentModal}
+                >
                   <strong>Add Student</strong>
                 </span>
               </div>
-              <button
-                className="add-marks-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openAddStudentModal(e);
-                }}
-                disabled={loading}
-              >
-                <span className="add-marks-text">+ Add Student</span>
-              </button>
             </div>
             <div className="card-back">
               <button className="flip-btn" onClick={toggleAddStudentFlip}>

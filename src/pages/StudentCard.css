@@ -218,6 +218,10 @@ body.dark-mode .details-btn:hover {
   flex-direction: column;
 }
 
+.add-student-card .student-info span:hover {
+  color: #007bff;
+}
+
 /* Flip Button Styles */
 .flip-btn {
   position: absolute;

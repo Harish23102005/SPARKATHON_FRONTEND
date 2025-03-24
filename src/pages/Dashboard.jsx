@@ -34,7 +34,6 @@ const Dashboard = () => {
   const [students, setStudents] = useState([]);
   const [darkMode, setDarkMode] = useState(false);
   const [flippedCards, setFlippedCards] = useState({});
-  const [renderKeys, setRenderKeys] = useState({});
   const [showDetails, setShowDetails] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState("add");
@@ -55,6 +54,7 @@ const Dashboard = () => {
   const [coLoading, setCoLoading] = useState({});
   const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
   const [loading, setLoading] = useState(false);
+  const [renderKey, setRenderKey] = useState(0); // Moved renderKey to component level
 
   const baseUrl = process.env.NODE_ENV === "development"
     ? "http://localhost:5000/api"
@@ -100,12 +100,6 @@ const Dashboard = () => {
         average: student.average || calculateStudentAverage(student),
       }));
       setStudents(studentsWithAverage);
-
-      const initialRenderKeys = studentsWithAverage.reduce((acc, student) => {
-        acc[student.student_id] = 0;
-        return acc;
-      }, {});
-      setRenderKeys(initialRenderKeys);
 
       for (const student of studentsWithAverage) {
         if (student.student_id) {
@@ -274,12 +268,8 @@ const Dashboard = () => {
     }
     setFlippedCards((prev) => {
       const newFlippedState = { ...prev, [studentId]: !prev[studentId] };
-      if (newFlippedState[studentId]) {
-        setRenderKeys((prevKeys) => ({
-          ...prevKeys,
-          [studentId]: (prevKeys[studentId] || 0) + 1,
-        }));
-      }
+      // Update renderKey when any card is flipped
+      setRenderKey((prev) => prev + 1);
       return newFlippedState;
     });
     fetchCoData(studentId);
@@ -527,62 +517,11 @@ const Dashboard = () => {
       (!filter.department || student.department.toLowerCase().includes(filter.department.toLowerCase()))
   );
 
-  const coChartData = (studentId) => {
-    const data = coData[studentId] || { coSummary: [], error: null };
-    if (data.error) {
-      return {
-        labels: ["Error"],
-        datasets: [
-          {
-            label: "Attainment (%)",
-            data: [0],
-            backgroundColor: "rgba(255, 99, 132, 0.6)",
-            borderColor: "rgba(255, 99, 132, 1)",
-            borderWidth: 1,
-            barThickness: 20,
-          },
-        ],
-      };
-    }
-    const coSummary = Array.isArray(data.coSummary) ? data.coSummary : [];
-    console.log(`CO Chart Data for student ${studentId}:`, coSummary);
-    if (!coSummary || coSummary.length === 0) {
-      return {
-        labels: ["No Data"],
-        datasets: [
-          {
-            label: "Attainment (%)",
-            data: [0],
-            backgroundColor: "rgba(40, 167, 69, 0.6)",
-            borderColor: "rgba(40, 167, 69, 1)",
-            borderWidth: 1,
-            barThickness: 20,
-          },
-        ],
-      };
-    }
-    const labels = coSummary.map((co) => co.coId) || [];
-    const dataValues = coSummary.map((co) => co.avgAttainment || 0) || [];
-    console.log(`CO Chart Data - Labels: ${labels}, Data: ${dataValues}`);
-    return {
-      labels,
-      datasets: [
-        {
-          label: "Attainment (%)",
-          data: dataValues,
-          backgroundColor: "rgba(40, 167, 69, 0.6)",
-          borderColor: "rgba(40, 167, 69, 1)",
-          borderWidth: 1,
-          barThickness: 20,
-        },
-      ],
-    };
-  };
-
   const historicalChartData = (student) => {
     const marks = student?.Marks || [];
     console.log(`Historical Chart Data for student ${student?.student_id || 'unknown'}:`, marks);
     if (!marks || marks.length === 0) {
+      console.log(`No marks data for student ${student?.student_id || 'unknown'}`);
       return {
         labels: ["No Data"],
         datasets: [
@@ -606,25 +545,41 @@ const Dashboard = () => {
       };
     }
 
-    const labels = marks.map((m, index) => m.year || `Entry ${index + 1}`);
-    const internalData = marks.map((m) => {
-      const internal = parseFloat(m.internal) || 0;
-      const totalInternal = parseFloat(m.totalInternal) || 1;
-      const percentage = (internal / totalInternal) * 100;
-      const result = isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
-      console.log(`Student ${student.student_id} - Internal: ${internal}, Total Internal: ${totalInternal}, Percentage: ${result}`);
-      return result;
-    });
-    const examData = marks.map((m) => {
-      const exam = parseFloat(m.exam) || 0;
-      const totalExam = parseFloat(m.totalExam) || 1;
-      const percentage = (exam / totalExam) * 100;
-      const result = isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
-      console.log(`Student ${student.student_id} - Exam: ${exam}, Total Exam: ${totalExam}, Percentage: ${result}`);
-      return result;
+    const labels = marks.map((m, index) => {
+      if (!m || typeof m !== "object") {
+        console.warn(`Invalid mark entry for student ${student?.student_id || 'unknown'} at index ${index}:`, m);
+        return `Entry ${index + 1}`;
+      }
+      return m.year || `Entry ${index + 1}`;
     });
 
-    console.log(`Historical Chart Data - Labels: ${labels}, Internal: ${internalData}, Exam: ${examData}`);
+    const internalData = marks.map((m, index) => {
+      if (!m || typeof m !== "object") {
+        console.warn(`Invalid mark entry for internal data at index ${index}:`, m);
+        return 0;
+      }
+      const percentage = (m.internal / (m.totalInternal || 1)) * 100;
+      if (isNaN(percentage) || !isFinite(percentage)) {
+        console.warn(`Invalid internal percentage for student ${student?.student_id || 'unknown'} at index ${index}:`, { internal: m.internal, totalInternal: m.totalInternal });
+        return 0;
+      }
+      return percentage;
+    });
+
+    const examData = marks.map((m, index) => {
+      if (!m || typeof m !== "object") {
+        console.warn(`Invalid mark entry for exam data at index ${index}:`, m);
+        return 0;
+      }
+      const percentage = (m.exam / (m.totalExam || 1)) * 100;
+      if (isNaN(percentage) || !isFinite(percentage)) {
+        console.warn(`Invalid exam percentage for student ${student?.student_id || 'unknown'} at index ${index}:`, { exam: m.exam, totalExam: m.totalExam });
+        return 0;
+      }
+      return percentage;
+    });
+
+    console.log(`Historical Chart Data for student ${student?.student_id || 'unknown'} - Labels: ${labels}, Internal: ${internalData}, Exam: ${examData}`);
 
     return {
       labels,
@@ -649,13 +604,113 @@ const Dashboard = () => {
     };
   };
 
+  const coChartData = (studentId) => {
+    const data = coData[studentId] || { coSummary: [], error: null };
+    if (data.error) {
+      console.log(`CO Chart Data error for student ${studentId}:`, data.error);
+      return {
+        labels: ["Error"],
+        datasets: [
+          {
+            label: "Attainment (%)",
+            data: [0],
+            backgroundColor: "rgba(255, 99, 132, 0.6)",
+            borderColor: "rgba(255, 99, 132, 1)",
+            borderWidth: 1,
+            barThickness: 20,
+          },
+        ],
+      };
+    }
+    const coSummary = Array.isArray(data.coSummary) ? data.coSummary : [];
+    console.log(`CO Chart Data for student ${studentId}:`, coSummary);
+    if (!coSummary || coSummary.length === 0) {
+      console.log(`No CO data for student ${studentId}`);
+      return {
+        labels: ["No Data"],
+        datasets: [
+          {
+            label: "Attainment (%)",
+            data: [0],
+            backgroundColor: "rgba(40, 167, 69, 0.6)",
+            borderColor: "rgba(40, 167, 69, 1)",
+            borderWidth: 1,
+            barThickness: 20,
+          },
+        ],
+      };
+    }
+
+    const labels = coSummary.map((co, index) => {
+      if (!co || typeof co !== "object") {
+        console.warn(`Invalid CO entry for student ${studentId} at index ${index}:`, co);
+        return `CO${index + 1}`;
+      }
+      return co.coId || `CO${index + 1}`;
+    });
+
+    const dataValues = coSummary.map((co, index) => {
+      if (!co || typeof co !== "object") {
+        console.warn(`Invalid CO entry for data values at index ${index}:`, co);
+        return 0;
+      }
+      const attainment = co.avgAttainment || 0;
+      if (isNaN(attainment) || !isFinite(attainment)) {
+        console.warn(`Invalid CO attainment for student ${studentId} at index ${index}:`, co);
+        return 0;
+      }
+      return attainment;
+    });
+
+    console.log(`CO Chart Data for student ${studentId} - Labels: ${labels}, Data: ${dataValues}`);
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Attainment (%)",
+          data: dataValues,
+          backgroundColor: "rgba(40, 167, 69, 0.6)",
+          borderColor: "rgba(40, 167, 69, 1)",
+          borderWidth: 1,
+          barThickness: 20,
+        },
+      ],
+    };
+  };
+
   const calculateThreeYearComparison = (student) => {
     const recentMarks = student?.Marks?.slice(-3) || [];
-    const avgInternal = recentMarks.reduce((sum, m) => sum + (m.internal / (m.totalInternal || 1) * 100), 0) / (recentMarks.length || 1) || 0;
-    const avgExam = recentMarks.reduce((sum, m) => sum + (m.exam / (m.totalExam || 1) * 100), 0) / (recentMarks.length || 1) || 0;
+    console.log(`Calculating 3-Year Comparison for student ${student?.student_id || 'unknown'}:`, recentMarks);
+    const avgInternal = recentMarks.reduce((sum, m) => {
+      if (!m || typeof m !== "object") {
+        console.warn(`Invalid mark entry for avgInternal:`, m);
+        return sum;
+      }
+      const percentage = (m.internal / (m.totalInternal || 1)) * 100;
+      return sum + (isNaN(percentage) || !isFinite(percentage) ? 0 : percentage);
+    }, 0) / (recentMarks.length || 1) || 0;
+
+    const avgExam = recentMarks.reduce((sum, m) => {
+      if (!m || typeof m !== "object") {
+        console.warn(`Invalid mark entry for avgExam:`, m);
+        return sum;
+      }
+      const percentage = (m.exam / (m.totalExam || 1)) * 100;
+      return sum + (isNaN(percentage) || !isFinite(percentage) ? 0 : percentage);
+    }, 0) / (recentMarks.length || 1) || 0;
+
     const latest = recentMarks[recentMarks.length - 1] || { internal: 0, totalInternal: 1, exam: 0, totalExam: 1 };
     const currentInternal = (latest.internal / (latest.totalInternal || 1)) * 100 || 0;
     const currentExam = (latest.exam / (latest.totalExam || 1)) * 100 || 0;
+
+    console.log(`3-Year Comparison for student ${student?.student_id || 'unknown'}:`, {
+      avgInternal,
+      avgExam,
+      currentInternal,
+      currentExam,
+    });
+
     return {
       avgInternal: avgInternal.toFixed(2),
       avgExam: avgExam.toFixed(2),
@@ -722,11 +777,8 @@ const Dashboard = () => {
               return null;
             }
 
-            console.log(`Rendering student card for student ${student.student_id}:`, student);
-
             const threeYearComp = calculateThreeYearComparison(student);
             const isFlipped = flippedCards[student.student_id] || false;
-            const renderKey = renderKeys[student.student_id] || 0;
 
             return (
               <div
@@ -801,7 +853,7 @@ const Dashboard = () => {
                                     },
                                     title: {
                                       display: true,
-                                      text: "Historical Performance",
+                                      text: "Performance Trends",
                                       font: {
                                         size: 14,
                                       },
@@ -843,7 +895,7 @@ const Dashboard = () => {
                         <div className="chart-container">
                           {coLoading[student.student_id] ? (
                             <p>Loading CO data...</p>
-                          ) : coData[student.student_id] && Array.isArray(coData[student.student_id].coSummary) && coData[student.student_id].coSummary.length > 0 ? (
+                          ) : coData[student.student_id] && coData[student.student_id].coSummary?.length > 0 ? (
                             <ChartErrorBoundary>
                               <Bar
                                 key={`co-${student.student_id}-${renderKey}`}
@@ -902,7 +954,7 @@ const Dashboard = () => {
                               />
                             </ChartErrorBoundary>
                           ) : (
-                            <p>No CO data available yet. {coData[student.student_id]?.error || "No error message available."}</p>
+                            <p>No CO data available yet. {coData[student.student_id]?.error || ""}</p>
                           )}
                         </div>
                       </>

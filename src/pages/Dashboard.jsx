@@ -498,7 +498,6 @@ const Dashboard = () => {
           const coTargets = [];
           let coIndex = 1;
 
-          // Dynamically extract CO data
           while (row[`CO${coIndex}_internal`] !== undefined) {
             const coId = `CO${coIndex}`;
             coMapping.push({
@@ -793,7 +792,7 @@ const Dashboard = () => {
                     {showDetails[student.student_id] && (
                       <>
                         <h3>Performance Trends</h3>
-                        <div className="chart-container">
+                        <div className="chart-container" style={{ height: "200px", width: "100%" }}>
                           {student.Marks && student.Marks.length > 0 ? (
                             <ChartErrorBoundary>
                               <Bar
@@ -818,7 +817,7 @@ const Dashboard = () => {
                         <p>Internal Avg: {threeYearComp.avgInternal}% ({threeYearComp.internalAboveAvg})</p>
                         <p>Exam Avg: {threeYearComp.avgExam}% ({threeYearComp.examAboveAvg})</p>
                         <h3>CO/PO Attainment</h3>
-                        <div className="chart-container">
+                        <div className="chart-container" style={{ height: "200px", width: "100%" }}>
                           {coLoading[student.student_id] ? (
                             <p>Loading CO data...</p>
                           ) : coData[student.student_id] && coData[student.student_id].coSummary?.length > 0 ? (
@@ -850,52 +849,45 @@ const Dashboard = () => {
           })
         )}
 
-<div className={`add-student-card ${isAddStudentFlipped ? "flipped" : ""}`}>
-  <div className="card-inner">
-    <div className="card-front">
-      <button
-        className="flip-btn"
-        onClick={toggleAddStudentFlip}
-      >
-        <FaSyncAlt />
-      </button>
-      <div className="student-info">
-        <span><strong>Add a new student</strong></span>
-      </div>
-      <button
-          className="add-marks-btn"
-          onClick={(e) => { e.stopPropagation(); openAddStudentModal(e); }}
-          disabled={loading}
-        >
-          <span className="add-marks-text">+ Add Student</span>
-        </button>
-        <button
-          className="details-btn"
-          disabled
-        >
-          <FaEye /> Show Details
-        </button>
-      </div>
-      <div className="card-back">
-        <button
-          className="flip-btn"
-          onClick={toggleAddStudentFlip}
-        >
-          <FaSyncAlt />
-        </button>
-          <label className="import-excel-btn">
-            <FaFileImport /> Import Excel
-              <input
-                type="file"
-                accept=".xlsx, .xls"
-                onChange={handleImportExcel}
-                style={{ display: "none" }}
+        <div className={`add-student-card ${isAddStudentFlipped ? "flipped" : ""}`}>
+          <div className="card-inner">
+            <div className="card-front">
+              <button className="flip-btn" onClick={toggleAddStudentFlip}>
+                <FaSyncAlt />
+              </button>
+              <div className="student-info">
+                <span style={{ textAlign: "center", width: "100%" }}>
+                  <strong>Add Student</strong>
+                </span>
+              </div>
+              <button
+                className="add-marks-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openAddStudentModal(e);
+                }}
                 disabled={loading}
-              />
-            </label>
+              >
+                <span className="add-marks-text">+ Add Student</span>
+              </button>
+            </div>
+            <div className="card-back">
+              <button className="flip-btn" onClick={toggleAddStudentFlip}>
+                <FaSyncAlt />
+              </button>
+              <label className="import-excel-btn">
+                <FaFileImport /> Import Excel
+                <input
+                  type="file"
+                  accept=".xlsx, .xls"
+                  onChange={handleImportExcel}
+                  style={{ display: "none" }}
+                  disabled={loading}
+                />
+              </label>
+            </div>
           </div>
         </div>
-      </div>
       </div>
 
       {isModalOpen && (

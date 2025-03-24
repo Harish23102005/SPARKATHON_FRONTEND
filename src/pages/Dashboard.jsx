@@ -29,27 +29,12 @@ class ChartErrorBoundary extends React.Component {
   }
 }
 
-// Custom hook to force chart re-rendering
-const useChartRender = (isFlipped) => {
-  const [renderKey, setRenderKey] = useState(0);
-
-  useEffect(() => {
-    if (isFlipped) {
-      const timer = setTimeout(() => {
-        setRenderKey((prev) => prev + 1);
-      }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, [isFlipped]);
-
-  return renderKey;
-};
-
 const Dashboard = () => {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [darkMode, setDarkMode] = useState(false);
   const [flippedCards, setFlippedCards] = useState({});
+  const [renderKeys, setRenderKeys] = useState({}); // New state to manage render keys for each student
   const [showDetails, setShowDetails] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState("add");
@@ -115,6 +100,13 @@ const Dashboard = () => {
         average: student.average || calculateStudentAverage(student),
       }));
       setStudents(studentsWithAverage);
+
+      // Initialize renderKeys for each student
+      const initialRenderKeys = studentsWithAverage.reduce((acc, student) => {
+        acc[student.student_id] = 0;
+        return acc;
+      }, {});
+      setRenderKeys(initialRenderKeys);
 
       for (const student of studentsWithAverage) {
         if (student.student_id) {
@@ -281,10 +273,17 @@ const Dashboard = () => {
       console.warn("Cannot fetch CO data: studentId is invalid", studentId);
       return;
     }
-    setFlippedCards((prev) => ({
-      ...prev,
-      [studentId]: !prev[studentId],
-    }));
+    setFlippedCards((prev) => {
+      const newFlippedState = { ...prev, [studentId]: !prev[studentId] };
+      if (newFlippedState[studentId]) {
+        // Update renderKey for this student when the card is flipped
+        setRenderKeys((prevKeys) => ({
+          ...prevKeys,
+          [studentId]: (prevKeys[studentId] || 0) + 1,
+        }));
+      }
+      return newFlippedState;
+    });
     fetchCoData(studentId);
   };
 
@@ -717,9 +716,11 @@ const Dashboard = () => {
               return null;
             }
 
+            console.log(`Rendering student card for student ${student.student_id}:`, student);
+
             const threeYearComp = calculateThreeYearComparison(student);
             const isFlipped = flippedCards[student.student_id] || false;
-            const renderKey = useChartRender(isFlipped);
+            const renderKey = renderKeys[student.student_id] || 0;
 
             return (
               <div
@@ -836,7 +837,7 @@ const Dashboard = () => {
                         <div className="chart-container">
                           {coLoading[student.student_id] ? (
                             <p>Loading CO data...</p>
-                          ) : coData[student.student_id] && coData[student.student_id].coSummary?.length > 0 ? (
+                          ) : coData[student.student_id] && Array.isArray(coData[student.student_id].coSummary) && coData[student.student_id].coSummary.length > 0 ? (
                             <ChartErrorBoundary>
                               <Bar
                                 key={`co-${student.student_id}-${renderKey}`}
@@ -895,7 +896,7 @@ const Dashboard = () => {
                               />
                             </ChartErrorBoundary>
                           ) : (
-                            <p>No CO data available yet. {coData[student.student_id]?.error || ""}</p>
+                            <p>No CO data available yet. {coData[student.student_id]?.error || "No error message available."}</p>
                           )}
                         </div>
                       </>

@@ -35,10 +35,9 @@ const useChartRender = (isFlipped) => {
 
   useEffect(() => {
     if (isFlipped) {
-      // Delay the re-render to ensure the DOM is ready after the flip animation
       const timer = setTimeout(() => {
         setRenderKey((prev) => prev + 1);
-      }, 600); // Match the flip animation duration (0.6s)
+      }, 600);
       return () => clearTimeout(timer);
     }
   }, [isFlipped]);
@@ -72,7 +71,6 @@ const Dashboard = () => {
   const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
   const [loading, setLoading] = useState(false);
 
-  // Define base URL consistently
   const baseUrl = process.env.NODE_ENV === "development"
     ? "http://localhost:5000/api"
     : "https://student-performance-tracker-backend.onrender.com/api";
@@ -101,7 +99,8 @@ const Dashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Stricter validation for student_id
+      console.log("Raw students response:", response.data);
+
       const validStudents = response.data.filter(student => {
         const isValid = student.student_id && typeof student.student_id === "string" && student.student_id.trim() !== "";
         if (!isValid) {
@@ -111,18 +110,16 @@ const Dashboard = () => {
       });
       console.log("Fetched students:", validStudents);
 
-      // Calculate average for each student if not provided
       const studentsWithAverage = validStudents.map(student => ({
         ...student,
         average: student.average || calculateStudentAverage(student),
       }));
       setStudents(studentsWithAverage);
 
-      // Fetch CO data for each student
       for (const student of studentsWithAverage) {
         if (student.student_id) {
           await fetchCoData(student.student_id);
-          await new Promise(resolve => setTimeout(resolve, 100)); // Throttle requests
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
     } catch (error) {
@@ -147,7 +144,7 @@ const Dashboard = () => {
   const fetchCoData = async (studentId, retryCount = 0) => {
     if (!studentId || typeof studentId !== "string" || studentId.trim() === "") {
       console.warn("Skipping CO fetch: studentId is invalid", studentId);
-      setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [] } }));
+      setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [], error: "Invalid student ID" } }));
       setCoLoading((prev) => ({ ...prev, [studentId]: false }));
       return;
     }
@@ -157,20 +154,29 @@ const Dashboard = () => {
       if (!token) {
         throw new Error("No token found");
       }
-      const response = await axios.get(`${baseUrl}/students/calculate-co-po/${studentId}`, {
+      const url = `${baseUrl}/students/calculate-co-po/${studentId}`;
+      console.log(`Fetching CO data from: ${url}`);
+      const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!response.data || typeof response.data !== "object") {
+        throw new Error("Invalid CO data response: Response data is not an object");
+      }
       setCoData((prev) => ({ ...prev, [studentId]: response.data }));
       console.log(`CO data for student ${studentId}:`, response.data);
     } catch (error) {
       console.error(`Error fetching CO data for student ${studentId}:`, error);
+      console.error(`Failed URL: ${baseUrl}/students/calculate-co-po/${studentId}`);
       if (error.response?.status === 401) {
         alert("Session expired! Please log in again.");
         localStorage.removeItem("token");
         navigate("/login");
         return;
       }
-      setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [] } }));
+      setCoData((prev) => ({
+        ...prev,
+        [studentId]: { coSummary: [], error: error.message || "Failed to fetch CO data" },
+      }));
       if (retryCount < 2) {
         console.log(`Retrying fetchCoData for student ${studentId} (attempt ${retryCount + 1})...`);
         setTimeout(() => fetchCoData(studentId, retryCount + 1), 1000);
@@ -525,7 +531,22 @@ const Dashboard = () => {
   );
 
   const coChartData = (studentId) => {
-    const data = coData[studentId] || { coSummary: [] };
+    const data = coData[studentId] || { coSummary: [], error: null };
+    if (data.error) {
+      return {
+        labels: ["Error"],
+        datasets: [
+          {
+            label: "Attainment (%)",
+            data: [0],
+            backgroundColor: "rgba(255, 99, 132, 0.6)",
+            borderColor: "rgba(255, 99, 132, 1)",
+            borderWidth: 1,
+            barThickness: 20,
+          },
+        ],
+      };
+    }
     const coSummary = Array.isArray(data.coSummary) ? data.coSummary : [];
     console.log(`CO Chart Data for student ${studentId}:`, coSummary);
     if (!coSummary || coSummary.length === 0) {
@@ -691,9 +712,15 @@ const Dashboard = () => {
           <p className="no-students-message">No students available. Add a new student!</p>
         ) : (
           filteredStudents.map((student, index) => {
+            if (!student || !student.student_id || !student.name || !student.department) {
+              console.warn("Skipping rendering of invalid student:", student);
+              return null;
+            }
+
             const threeYearComp = calculateThreeYearComparison(student);
-            const isFlipped = flippedCards[student.student_id];
+            const isFlipped = flippedCards[student.student_id] || false;
             const renderKey = useChartRender(isFlipped);
+
             return (
               <div
                 key={student.student_id || index}
@@ -868,7 +895,7 @@ const Dashboard = () => {
                               />
                             </ChartErrorBoundary>
                           ) : (
-                            <p>No CO data available yet.</p>
+                            <p>No CO data available yet. {coData[student.student_id]?.error || ""}</p>
                           )}
                         </div>
                       </>

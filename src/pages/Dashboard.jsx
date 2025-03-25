@@ -1,40 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FaMoon, FaSun, FaFileExcel, FaFilePdf, FaPlus, FaTimes, FaTrash, FaEye, FaFileImport, FaSyncAlt } from "react-icons/fa";
+import { FaMoon, FaSun, FaFileExcel, FaFilePdf, FaPlus, FaTrash, FaEye, FaFileImport } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Bar } from "react-chartjs-2";
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from "chart.js";
 import "./Dashboard.css";
-import "./StudentCard.css";
-
-// Register Chart.js components
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-
-// Error Boundary Component
-class ChartErrorBoundary extends React.Component {
-  state = { hasError: false, error: null };
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return <p>Failed to render chart: {this.state.error?.message || "Unknown error"}</p>;
-    }
-    return this.props.children;
-  }
-}
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [darkMode, setDarkMode] = useState(false);
-  const [flippedCards, setFlippedCards] = useState({});
-  const [showDetails, setShowDetails] = useState({});
+  const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState("add");
   const [formData, setFormData] = useState({
@@ -50,12 +28,6 @@ const Dashboard = () => {
     coTargets: [{ coId: "CO1", target: "70" }],
   });
   const [editingStudentId, setEditingStudentId] = useState(null);
-  const [coData, setCoData] = useState({});
-  const [coLoading, setCoLoading] = useState({});
-  const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
-  const [loading, setLoading] = useState(false);
-  const [renderKey, setRenderKey] = useState(0);
-  const [isAddStudentFlipped, setIsAddStudentFlipped] = useState(false);
 
   const baseUrl = process.env.NODE_ENV === "development"
     ? "http://localhost:5000/api"
@@ -94,13 +66,6 @@ const Dashboard = () => {
       });
 
       setStudents(validStudents);
-
-      for (const student of validStudents) {
-        if (student.student_id) {
-          await fetchCoData(student.student_id);
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
     } catch (error) {
       console.error("Error fetching students:", error);
       if (error.response?.status === 401) {
@@ -119,37 +84,6 @@ const Dashboard = () => {
     }
   };
 
-  const fetchCoData = async (studentId, retryCount = 0) => {
-    if (!studentId || typeof studentId !== "string" || studentId.trim() === "") {
-      setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [], error: "Invalid student ID" } }));
-      setCoLoading((prev) => ({ ...prev, [studentId]: false }));
-      return;
-    }
-    setCoLoading((prev) => ({ ...prev, [studentId]: true }));
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("No token found");
-      }
-      const response = await axios.get(`${baseUrl}/students/calculate-co-po/${studentId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCoData((prev) => ({ ...prev, [studentId]: response.data }));
-    } catch (error) {
-      console.error(`Error fetching CO data for student ${studentId}:`, error);
-      console.error("Response:", error.response?.data);
-      setCoData((prev) => ({
-        ...prev,
-        [studentId]: { coSummary: [], error: error.message || "Failed to fetch CO data" },
-      }));
-      if (retryCount < 2) {
-        setTimeout(() => fetchCoData(studentId, retryCount + 1), 1000);
-      }
-    } finally {
-      setCoLoading((prev) => ({ ...prev, [studentId]: false }));
-    }
-  };
-
   const toggleDarkMode = () => {
     setDarkMode((prev) => !prev);
     document.body.classList.toggle("dark-mode");
@@ -158,32 +92,16 @@ const Dashboard = () => {
   const exportToExcel = async () => {
     setLoading(true);
     try {
-      for (const student of students) {
-        if (!coData[student.student_id] && student.student_id) {
-          await fetchCoData(student.student_id);
-        }
-      }
-
-      const groupedByDept = students.reduce((acc, student) => {
-        acc[student.department] = acc[student.department] || [];
-        acc[student.department].push(student);
-        return acc;
-      }, {});
       const wb = XLSX.utils.book_new();
-      Object.entries(groupedByDept).forEach(([dept, deptStudents]) => {
-        const ws = XLSX.utils.json_to_sheet(
-          deptStudents.map((student) => ({
-            studentId: student.student_id,
-            name: student.name,
-            department: student.department,
-            average: student.average || "N/A",
-            coAttainment: coData[student.student_id]?.coSummary
-              ?.map((co) => `${co.coId}: ${co.avgAttainment.toFixed(2)}% (Level ${assignCOLevel(co.avgAttainment)})`)
-              .join(", ") || "N/A",
-          }))
-        );
-        XLSX.utils.book_append_sheet(wb, ws, dept.slice(0, 31));
-      });
+      const ws = XLSX.utils.json_to_sheet(
+        students.map((student) => ({
+          studentId: student.student_id,
+          name: student.name,
+          department: student.department,
+          average: student.average || "N/A",
+        }))
+      );
+      XLSX.utils.book_append_sheet(wb, ws, "Students");
       XLSX.writeFile(wb, "StudentPerformance.xlsx");
     } catch (error) {
       console.error("Error exporting to Excel:", error);
@@ -200,36 +118,16 @@ const Dashboard = () => {
         return;
       }
       setLoading(true);
-      for (const student of students) {
-        if (!coData[student.student_id] && student.student_id) {
-          await fetchCoData(student.student_id);
-        }
-      }
-
       const doc = new jsPDF();
       doc.text("Student Performance Report", 10, 10);
-      const groupedByDept = students.reduce((acc, student) => {
-        acc[student.department] = acc[student.department] || [];
-        acc[student.department].push(student);
-        return acc;
-      }, {});
-      let yOffset = 20;
-      Object.entries(groupedByDept).forEach(([dept, deptStudents]) => {
-        doc.text(`Department: ${dept}`, 10, yOffset);
-        yOffset += 10;
-        const head = [["studentId", "name", "department", "average", "coAttainment"]];
-        const body = deptStudents.map((student) => [
-          student.student_id,
-          student.name,
-          student.department,
-          student.average || "N/A",
-          coData[student.student_id]?.coSummary
-            ?.map((co) => `${co.coId}: ${co.avgAttainment.toFixed(2)}% (Level ${assignCOLevel(co.avgAttainment)})`)
-            .join(", ") || "N/A",
-        ]);
-        autoTable(doc, { head, body, startY: yOffset });
-        yOffset = doc.lastAutoTable.finalY + 10;
-      });
+      const head = [["studentId", "name", "department", "average"]];
+      const body = students.map((student) => [
+        student.student_id,
+        student.name,
+        student.department,
+        student.average || "N/A",
+      ]);
+      autoTable(doc, { head, body, startY: 20 });
       doc.save("StudentPerformance.pdf");
     } catch (error) {
       console.error("Error generating PDF:", error);
@@ -237,28 +135,6 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleCardClick = (e, studentId) => {
-    if (e.target.closest(".add-marks-btn") || e.target.closest(".delete-btn") || e.target.closest(".details-btn")) return;
-    if (!studentId || typeof studentId !== "string" || studentId.trim() === "") {
-      console.warn("Cannot fetch CO data: studentId is invalid", studentId);
-      return;
-    }
-    setFlippedCards((prev) => {
-      const newFlippedState = { ...prev, [studentId]: !prev[studentId] };
-      setRenderKey((prev) => prev + 1);
-      return newFlippedState;
-    });
-    fetchCoData(studentId);
-  };
-
-  const toggleDetails = (studentId) => {
-    if (!studentId) return;
-    setShowDetails((prev) => ({
-      ...prev,
-      [studentId]: !prev[studentId],
-    }));
   };
 
   const openAddStudentModal = (e) => {
@@ -288,21 +164,12 @@ const Dashboard = () => {
       name: student.name,
       department: student.department,
       year: new Date().getFullYear().toString(),
-      internalMarks: "",
-      examMarks: "",
-      totalInternal: "",
-      totalExam: "",
-      coMapping: student.Marks?.[0]?.MarksCoMappings?.map(co => ({
-        coId: co.coId,
-        internal: co.internal || "",
-        exam: co.exam || "",
-        totalInternal: co.totalInternal || "",
-        totalExam: co.totalExam || "",
-      })) || [{ coId: "CO1", internal: "", exam: "", totalInternal: "", totalExam: "" }],
-      coTargets: student.CourseOutcomes?.map(co => ({
-        coId: co.coId,
-        target: co.target || "70",
-      })) || [{ coId: "CO1", target: "70" }],
+      internalMarks: student.marks?.[0]?.internal || "",
+      examMarks: student.marks?.[0]?.exam || "",
+      totalInternal: student.marks?.[0]?.totalInternal || "",
+      totalExam: student.marks?.[0]?.totalExam || "",
+      coMapping: student.marks?.[0]?.coMapping || [{ coId: "CO1", internal: "", exam: "", totalInternal: "", totalExam: "" }],
+      coTargets: student.course_outcomes || [{ coId: "CO1", target: "70" }],
     });
     setEditingStudentId(student.student_id);
     setIsModalOpen(true);
@@ -363,20 +230,6 @@ const Dashboard = () => {
     });
   };
 
-  const assignCOLevel = (attainment) => {
-    if (attainment > 80) return 3;
-    if (attainment > 60) return 2;
-    return 1;
-  };
-
-  const adjustTargetsAutomatically = (currentTargets, coSummary) => {
-    return currentTargets.map((target) => {
-      const attainment = coSummary?.find((co) => co.coId === target.coId)?.avgAttainment || 0;
-      const nextYearTarget = attainment > target.target + 10 ? Math.min(target.target + 5, 100) : target.target;
-      return { ...target, target: nextYearTarget };
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
@@ -414,20 +267,17 @@ const Dashboard = () => {
             target: parseFloat(target.target) || 70,
           })),
         };
-        console.log("Adding new student payload:", newStudent);
         await axios.post(`${baseUrl}/students`, newStudent, {
           headers: { Authorization: `Bearer ${token}` },
         });
         alert("Student added successfully!");
       } else if (modalType === "update") {
-        // Validate required fields
         if (!formData.year || !formData.internalMarks || !formData.examMarks || !formData.totalInternal || !formData.totalExam) {
           alert("Please fill in all required fields (year, internal marks, exam marks, total internal, total exam).");
           setLoading(false);
           return;
         }
-  
-        // Prepare the new marks entry
+
         const newMarksEntry = {
           year: formData.year,
           internal: parseFloat(formData.internalMarks) || 0,
@@ -442,45 +292,22 @@ const Dashboard = () => {
             totalExam: parseFloat(co.totalExam) || 0,
           })),
         };
-  
-        // Update the student with the new marks
+
         const marksUpdatePayload = {
-          marks: [newMarksEntry], // Send as an array since the backend expects an array
+          marks: [newMarksEntry],
         };
-        console.log("Updating marks payload:", marksUpdatePayload);
-        const marksResponse = await axios.put(
+        await axios.put(
           `${baseUrl}/students/${editingStudentId}`,
           marksUpdatePayload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-  
-        // Update CO/PO data and adjust targets
-        const updatedCoData = await axios.get(`${baseUrl}/students/calculate-co-po/${editingStudentId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const adjustedTargets = adjustTargetsAutomatically(formData.coTargets, updatedCoData.data.coSummary);
-  
-        // Update course outcomes separately
-        const courseOutcomesPayload = {
-          courseOutcomes: adjustedTargets.map((target) => ({
-            coId: target.coId,
-            target: parseFloat(target.target) || 70,
-          })),
-        };
-        console.log("Updating course outcomes payload:", courseOutcomesPayload);
-        await axios.put(
-          `${baseUrl}/students/${editingStudentId}/course-outcomes`,
-          courseOutcomesPayload,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-  
-        alert("Marks updated and targets adjusted successfully!");
+
+        alert("Marks updated successfully!");
       }
       setIsModalOpen(false);
       fetchStudents();
     } catch (error) {
       console.error("Error submitting form:", error);
-      console.error("Response:", error.response?.data);
       if (error.response?.status === 401) {
         alert("Session expired! Please log in again.");
         localStorage.removeItem("token");
@@ -496,27 +323,26 @@ const Dashboard = () => {
   const handleImportExcel = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-  
+
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
       if (!token) {
         throw new Error("No token found");
       }
-  
+
       const reader = new FileReader();
       reader.onload = async (event) => {
         const data = new Uint8Array(event.target.result);
         const workbook = XLSX.read(data, { type: "array" });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(sheet);
-  
+
         const studentsToAdd = jsonData.map((row) => {
           const coMapping = [];
           const coTargets = [];
           let coIndex = 1;
-  
-          // Parse CO data dynamically (e.g., co1, co2, co3, ...)
+
           while (row[`co${coIndex} internal marks`] !== undefined) {
             const coId = `CO${coIndex}`;
             coMapping.push({
@@ -532,7 +358,7 @@ const Dashboard = () => {
             });
             coIndex++;
           }
-  
+
           return {
             studentId: row["student id"]?.toString(),
             name: row["student name"],
@@ -550,8 +376,7 @@ const Dashboard = () => {
             courseOutcomes: coTargets.length > 0 ? coTargets : [{ coId: "CO1", target: 70 }],
           };
         });
-  
-        // Validate and filter out invalid entries
+
         const validStudents = studentsToAdd.filter(student => {
           if (!student.studentId || !student.name || !student.department) {
             console.warn("Skipping invalid student entry:", student);
@@ -559,21 +384,19 @@ const Dashboard = () => {
           }
           return true;
         });
-  
+
         if (validStudents.length === 0) {
           alert("No valid student data found in the Excel file.");
           setLoading(false);
           return;
         }
-  
-        // Send each student to the backend
+
         for (const student of validStudents) {
-          console.log("Importing student payload:", student);
           await axios.post(`${baseUrl}/students`, student, {
             headers: { Authorization: `Bearer ${token}` },
           });
         }
-  
+
         alert("Students imported successfully!");
         fetchStudents();
       };
@@ -599,228 +422,80 @@ const Dashboard = () => {
       (!filter.department || student.department.toLowerCase().includes(filter.department.toLowerCase()))
   );
 
-  const historicalChartData = (student) => {
-    const marks = student?.Marks || [];
-    if (!marks || marks.length === 0) {
-      return {
-        labels: ["No Data"],
-        datasets: [
-          {
-            label: "Internal (%)",
-            data: [0],
-            backgroundColor: "rgba(40, 167, 69, 0.6)",
-            borderColor: "rgba(40, 167, 69, 1)",
-            borderWidth: 1,
-            barThickness: 20,
-          },
-          {
-            label: "Exam (%)",
-            data: [0],
-            backgroundColor: "rgba(255, 99, 132, 0.6)",
-            borderColor: "rgba(255, 99, 132, 1)",
-            borderWidth: 1,
-            barThickness: 20,
-          },
-        ],
-      };
-    }
-
-    const labels = marks.map((m, index) => m.year || `Entry ${index + 1}`);
-    const internalData = marks.map((m) => (m.internal / (m.totalInternal || 1)) * 100);
-    const examData = marks.map((m) => (m.exam / (m.totalExam || 1)) * 100);
-
-    return {
-      labels,
-      datasets: [
-        {
-          label: "Internal (%)",
-          data: internalData,
-          backgroundColor: "rgba(40, 167, 69, 0.6)",
-          borderColor: "rgba(40, 167, 69, 1)",
-          borderWidth: 1,
-          barThickness: 20,
-        },
-        {
-          label: "Exam (%)",
-          data: examData,
-          backgroundColor: "rgba(255, 99, 132, 0.6)",
-          borderColor: "rgba(255, 99, 132, 1)",
-          borderWidth: 1,
-          barThickness: 20,
-        },
-      ],
-    };
-  };
-
-  const coChartData = (studentId) => {
-    const data = coData[studentId];
-    if (!data || !data.coSummary || data.coSummary.length === 0) {
-      return {
-        labels: ["No Data"],
-        datasets: [
-          {
-            label: "Attainment (%)",
-            data: [0],
-            backgroundColor: "rgba(54, 162, 235, 0.6)",
-            borderColor: "rgba(54, 162, 235, 1)",
-            borderWidth: 1,
-            barThickness: 20,
-          },
-        ],
-      };
-    }
-
-    return {
-      labels: data.coSummary.map((co) => co.coId),
-      datasets: [
-        {
-          label: "Attainment (%)",
-          data: data.coSummary.map((co) => co.avgAttainment),
-          backgroundColor: "rgba(54, 162, 235, 0.6)",
-          borderColor: "rgba(54, 162, 235, 1)",
-          borderWidth: 1,
-          barThickness: 20,
-        },
-        {
-          label: "Target (%)",
-          data: data.coSummary.map((co) => co.target),
-          backgroundColor: "rgba(255, 206, 86, 0.6)",
-          borderColor: "rgba(255, 206, 86, 1)",
-          borderWidth: 1,
-          barThickness: 20,
-        },
-      ],
-    };
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { position: "top" },
-      title: { display: true, text: "Performance Overview" },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        max: 100,
-        title: { display: true, text: "Percentage (%)" },
-      },
-    },
-  };
-
   return (
     <div className={`dashboard ${darkMode ? "dark-mode" : ""}`}>
       <header className="dashboard-header">
-        <h1>Student Performance Tracker</h1>
+        <h1>Student Performance Dashboard</h1>
         <div className="header-actions">
-          <button onClick={toggleDarkMode} className="theme-toggle">
-            {darkMode ? <FaSun /> : <FaMoon />}
-          </button>
-          <button onClick={exportToExcel} disabled={loading}>
-            <FaFileExcel /> Export to Excel
-          </button>
-          <button onClick={exportToPDF} disabled={loading}>
-            <FaFilePdf /> Export to PDF
-          </button>
           <label className="import-btn">
-            <FaFileImport /> Import Excel
+            Upload Semester Results
             <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} hidden />
           </label>
-          <button onClick={fetchStudents} disabled={loading}>
-            <FaSyncAlt /> Refresh
+          <button onClick={exportToExcel} disabled={loading}>
+            <FaFileExcel /> Export Excel
+          </button>
+          <button onClick={exportToPDF} disabled={loading}>
+            <FaFilePdf /> Export PDF
+          </button>
+          <button onClick={toggleDarkMode} className="theme-toggle">
+            {darkMode ? <FaSun /> : <FaMoon />}
           </button>
         </div>
       </header>
 
-      <div className="filters">
-        <input
-          type="text"
-          placeholder="Filter by Student ID"
-          value={filter.studentId}
-          onChange={(e) => setFilter({ ...filter, studentId: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Filter by Course"
-          value={filter.course}
-          onChange={(e) => setFilter({ ...filter, course: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Filter by Department"
-          value={filter.department}
-          onChange={(e) => setFilter({ ...filter, department: e.target.value })}
-        />
-      </div>
-
-      <div className="student-grid">
-        <div className="student-card add-student-card" onClick={openAddStudentModal}>
-          <div className="card-front">
-            <h3>Add Student</h3>
-            <FaPlus className="add-icon" />
-          </div>
+      <div className="dashboard-content">
+        <div className="filters">
+          <input
+            type="text"
+            placeholder="Filter by Student ID"
+            value={filter.studentId}
+            onChange={(e) => setFilter({ ...filter, studentId: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder="Filter by Course/Name"
+            value={filter.course}
+            onChange={(e) => setFilter({ ...filter, course: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder="Filter by Department"
+            value={filter.department}
+            onChange={(e) => setFilter({ ...filter, department: e.target.value })}
+          />
         </div>
 
-        {filteredStudents.map((student) => (
-          <div
-            key={student.student_id}
-            className={`student-card ${flippedCards[student.student_id] ? "flipped" : ""}`}
-            onClick={(e) => handleCardClick(e, student.student_id)}
-          >
-            <div className="card-front">
-              <h3>{student.name}</h3>
-              <p>ID: {student.student_id}</p>
-              <p>Department: {student.department}</p>
-              <p>Average: {student.average || "N/A"}%</p>
-              <div className="card-actions">
-                <button className="add-marks-btn" onClick={(e) => openUpdateMarksModal(student, e)}>
-                  Add Marks
-                </button>
-                <button className="delete-btn" onClick={(e) => handleDelete(student.student_id, e)}>
-                  <FaTrash />
-                </button>
-                <button className="details-btn" onClick={() => toggleDetails(student.student_id)}>
-                  <FaEye />
-                </button>
+        <div className="student-grid">
+          {filteredStudents.map((student) => (
+            <div key={student.student_id} className="student-card">
+              <div className="card-front">
+                <h3>Student ID: {student.student_id}</h3>
+                <p>Name: {student.name}</p>
+                <p>Department: {student.department}</p>
+                <p>Average: {student.average || "N/A"}</p>
+                <div className="card-actions">
+                  <button className="details-btn">
+                    <FaEye /> Show Details
+                  </button>
+                  <button className="add-marks-btn" onClick={(e) => openUpdateMarksModal(student, e)}>
+                    Add Marks
+                  </button>
+                  <button className="delete-btn" onClick={(e) => handleDelete(student.student_id, e)}>
+                    <FaTrash />
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="card-back">
-              {coLoading[student.student_id] ? (
-                <p>Loading CO/PO data...</p>
-              ) : coData[student.student_id]?.error ? (
-                <p>Error: {coData[student.student_id].error}</p>
-              ) : (
-                <>
-                  <h4>CO Attainment</h4>
-                  <ChartErrorBoundary>
-                    <div className="chart-container">
-                      <Bar data={coChartData(student.student_id)} options={chartOptions} />
-                    </div>
-                  </ChartErrorBoundary>
-                  {showDetails[student.student_id] && (
-                    <>
-                      <h4>Historical Performance</h4>
-                      <ChartErrorBoundary>
-                        <div className="chart-container">
-                          <Bar data={historicalChartData(student)} options={chartOptions} />
-                        </div>
-                      </ChartErrorBoundary>
-                      <h4>PO Attainment</h4>
-                      <ul>
-                        {coData[student.student_id]?.poSummary?.map((po, index) => (
-                          <li key={index}>
-                            {po.poId}: {po.avgAttainment.toFixed(2)}%
-                          </li>
-                        )) || <li>No PO data available</li>}
-                      </ul>
-                    </>
-                  )}
-                </>
-              )}
+          ))}
+          <div className="student-card add-student-card" onClick={openAddStudentModal}>
+            <div className="card-front">
+              <h3>Add a new student</h3>
+              <button className="add-student-btn">
+                <FaPlus />
+              </button>
             </div>
           </div>
-        ))}
+        </div>
       </div>
 
       {isModalOpen && (

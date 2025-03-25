@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FaMoon, FaSun, FaFileExcel, FaFilePdf, FaPlus, FaTimes, FaTrash, FaEye, FaFileImport, FaSyncAlt } from "react-icons/fa";
+import { FaMoon, FaSun, FaFileExcel, FaFilePdf, FaPlus, FaTrash, FaEye, FaFileImport, FaSyncAlt } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -55,7 +55,6 @@ const Dashboard = () => {
   const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
   const [loading, setLoading] = useState(false);
   const [renderKey, setRenderKey] = useState(0);
-  const [isAddStudentFlipped, setIsAddStudentFlipped] = useState(false);
 
   const baseUrl = process.env.NODE_ENV === "development"
     ? "http://localhost:5000/api"
@@ -712,115 +711,125 @@ const Dashboard = () => {
   return (
     <div className={`dashboard ${darkMode ? "dark-mode" : ""}`}>
       <header className="dashboard-header">
-        <h1>Student Performance Tracker</h1>
+        <h1>Student Performance Dashboard</h1>
         <div className="header-actions">
-          <button onClick={toggleDarkMode} className="theme-toggle">
-            {darkMode ? <FaSun /> : <FaMoon />}
-          </button>
-          <button onClick={exportToExcel} disabled={loading}>
-            <FaFileExcel /> Export to Excel
-          </button>
-          <button onClick={exportToPDF} disabled={loading}>
-            <FaFilePdf /> Export to PDF
+          <button onClick={() => navigate("/university-performance")} className="university-performance-btn">
+            University Performance
           </button>
           <label className="import-btn">
-            <FaFileImport /> Import Excel
+            Upload Semester Results
             <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} hidden />
           </label>
-          <button onClick={fetchStudents} disabled={loading}>
-            <FaSyncAlt /> Refresh
+          <button onClick={exportToExcel} disabled={loading}>
+            <FaFileExcel /> Export Excel
+          </button>
+          <button onClick={exportToPDF} disabled={loading}>
+            <FaFilePdf /> Export PDF
+          </button>
+          <button onClick={toggleDarkMode} className="theme-toggle">
+            {darkMode ? <FaSun /> : <FaMoon />}
           </button>
         </div>
       </header>
 
-      <div className="filters">
-        <input
-          type="text"
-          placeholder="Filter by Student ID"
-          value={filter.studentId}
-          onChange={(e) => setFilter({ ...filter, studentId: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Filter by Course"
-          value={filter.course}
-          onChange={(e) => setFilter({ ...filter, course: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Filter by Department"
-          value={filter.department}
-          onChange={(e) => setFilter({ ...filter, department: e.target.value })}
-        />
-      </div>
-
-      <div className="student-grid">
-        <div className="student-card add-student-card" onClick={openAddStudentModal}>
-          <div className="card-front">
-            <h3>Add Student</h3>
-            <FaPlus className="add-icon" />
-          </div>
+      <div className="dashboard-content">
+        <div className="filters">
+          <input
+            type="text"
+            placeholder="Filter by Student ID"
+            value={filter.studentId}
+            onChange={(e) => setFilter({ ...filter, studentId: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder="Filter by Course/Name"
+            value={filter.course}
+            onChange={(e) => setFilter({ ...filter, course: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder="Filter by Department"
+            value={filter.department}
+            onChange={(e) => setFilter({ ...filter, department: e.target.value })}
+          />
         </div>
 
-        {filteredStudents.map((student) => (
-          <div
-            key={student.student_id}
-            className={`student-card ${flippedCards[student.student_id] ? "flipped" : ""}`}
-            onClick={(e) => handleCardClick(e, student.student_id)}
-          >
-            <div className="card-front">
-              <h3>{student.name}</h3>
-              <p>ID: {student.student_id}</p>
-              <p>Department: {student.department}</p>
-              <p>Average: {student.average || "N/A"}%</p>
-              <div className="card-actions">
-                <button className="add-marks-btn" onClick={(e) => openUpdateMarksModal(student, e)}>
-                  Add Marks
-                </button>
-                <button className="delete-btn" onClick={(e) => handleDelete(student.student_id, e)}>
-                  <FaTrash />
-                </button>
-                <button className="details-btn" onClick={() => toggleDetails(student.student_id)}>
-                  <FaEye />
-                </button>
+        <div className="student-grid">
+          {filteredStudents.map((student) => (
+            <div
+              key={student.student_id}
+              className={`student-card ${flippedCards[student.student_id] ? "flipped" : ""}`}
+              onClick={(e) => handleCardClick(e, student.student_id)}
+            >
+              <div className="card-front">
+                <h3>Student ID: {student.student_id}</h3>
+                <p>Name: {student.name}</p>
+                <p>Department: {student.department}</p>
+                <p>Average: {student.average || "N/A"}</p>
+                {flippedCards[student.student_id] && (
+                  <div className="chart-container">
+                    <ChartErrorBoundary>
+                      <Bar data={historicalChartData(student)} options={chartOptions} />
+                    </ChartErrorBoundary>
+                  </div>
+                )}
+                <div className="card-actions">
+                  <button className="add-marks-btn" onClick={(e) => openUpdateMarksModal(student, e)}>
+                    Add Marks
+                  </button>
+                  <button className="delete-btn" onClick={(e) => handleDelete(student.student_id, e)}>
+                    <FaTrash />
+                  </button>
+                  <button className="details-btn" onClick={() => toggleDetails(student.student_id)}>
+                    <FaEye /> Show Details
+                  </button>
+                </div>
+              </div>
+              <div className="card-back">
+                {coLoading[student.student_id] ? (
+                  <p>Loading CO/PO data...</p>
+                ) : coData[student.student_id]?.error ? (
+                  <p>Error: {coData[student.student_id].error}</p>
+                ) : (
+                  <>
+                    <h4>CO Attainment</h4>
+                    <ChartErrorBoundary>
+                      <div className="chart-container">
+                        <Bar data={coChartData(student.student_id)} options={chartOptions} />
+                      </div>
+                    </ChartErrorBoundary>
+                    {showDetails[student.student_id] && (
+                      <>
+                        <h4>Historical Performance</h4>
+                        <ChartErrorBoundary>
+                          <div className="chart-container">
+                            <Bar data={historicalChartData(student)} options={chartOptions} />
+                          </div>
+                        </ChartErrorBoundary>
+                        <h4>PO Attainment</h4>
+                        <ul>
+                          {coData[student.student_id]?.poSummary?.map((po, index) => (
+                            <li key={index}>
+                              {po.poId}: {po.avgAttainment.toFixed(2)}%
+                            </li>
+                          )) || <li>No PO data available</li>}
+                        </ul>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </div>
-            <div className="card-back">
-              {coLoading[student.student_id] ? (
-                <p>Loading CO/PO data...</p>
-              ) : coData[student.student_id]?.error ? (
-                <p>Error: {coData[student.student_id].error}</p>
-              ) : (
-                <>
-                  <h4>CO Attainment</h4>
-                  <ChartErrorBoundary>
-                    <div className="chart-container">
-                      <Bar data={coChartData(student.student_id)} options={chartOptions} />
-                    </div>
-                  </ChartErrorBoundary>
-                  {showDetails[student.student_id] && (
-                    <>
-                      <h4>Historical Performance</h4>
-                      <ChartErrorBoundary>
-                        <div className="chart-container">
-                          <Bar data={historicalChartData(student)} options={chartOptions} />
-                        </div>
-                      </ChartErrorBoundary>
-                      <h4>PO Attainment</h4>
-                      <ul>
-                        {coData[student.student_id]?.poSummary?.map((po, index) => (
-                          <li key={index}>
-                            {po.poId}: {po.avgAttainment.toFixed(2)}%
-                          </li>
-                        )) || <li>No PO data available</li>}
-                      </ul>
-                    </>
-                  )}
-                </>
-              )}
+          ))}
+          <div className="student-card add-student-card" onClick={openAddStudentModal}>
+            <div className="card-front">
+              <h3>Add a new student</h3>
+              <button className="add-student-btn">
+                <FaPlus />
+              </button>
             </div>
           </div>
-        ))}
+        </div>
       </div>
 
       {isModalOpen && (

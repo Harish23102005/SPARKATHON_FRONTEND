@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FaMoon, FaSun, FaFileExcel, FaFilePdf, FaPlus, FaTimes, FaTrash, FaEye } from "react-icons/fa";
+import { FaMoon, FaSun, FaFileExcel, FaFilePdf, FaPlus, FaTimes, FaTrash, FaEye, FaFileImport, FaSyncAlt } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -29,22 +29,6 @@ class ChartErrorBoundary extends React.Component {
   }
 }
 
-// Custom hook to force chart re-rendering
-const useChartRender = (isFlipped) => {
-  const [renderKey, setRenderKey] = useState(0);
-
-  useEffect(() => {
-    if (isFlipped) {
-      const timer = setTimeout(() => {
-        setRenderKey((prev) => prev + 1);
-      }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, [isFlipped]);
-
-  return renderKey;
-};
-
 const Dashboard = () => {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
@@ -70,6 +54,8 @@ const Dashboard = () => {
   const [coLoading, setCoLoading] = useState({});
   const [filter, setFilter] = useState({ studentId: "", course: "", department: "" });
   const [loading, setLoading] = useState(false);
+  const [renderKey, setRenderKey] = useState(0);
+  const [isAddStudentFlipped, setIsAddStudentFlipped] = useState(false);
 
   const baseUrl = process.env.NODE_ENV === "development"
     ? "http://localhost:5000/api"
@@ -99,8 +85,6 @@ const Dashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("Raw students response:", response.data);
-
       const validStudents = response.data.filter(student => {
         const isValid = student.student_id && typeof student.student_id === "string" && student.student_id.trim() !== "";
         if (!isValid) {
@@ -108,15 +92,10 @@ const Dashboard = () => {
         }
         return isValid;
       });
-      console.log("Fetched students:", validStudents);
 
-      const studentsWithAverage = validStudents.map(student => ({
-        ...student,
-        average: student.average || calculateStudentAverage(student),
-      }));
-      setStudents(studentsWithAverage);
+      setStudents(validStudents);
 
-      for (const student of studentsWithAverage) {
+      for (const student of validStudents) {
         if (student.student_id) {
           await fetchCoData(student.student_id);
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -131,7 +110,6 @@ const Dashboard = () => {
         return;
       }
       if (retryCount < 2) {
-        console.log(`Retrying fetchStudents (attempt ${retryCount + 1})...`);
         setTimeout(() => fetchStudents(retryCount + 1), 1000);
       } else {
         alert(error.response?.data?.error || "Failed to fetch students after retries.");
@@ -143,7 +121,6 @@ const Dashboard = () => {
 
   const fetchCoData = async (studentId, retryCount = 0) => {
     if (!studentId || typeof studentId !== "string" || studentId.trim() === "") {
-      console.warn("Skipping CO fetch: studentId is invalid", studentId);
       setCoData((prev) => ({ ...prev, [studentId]: { coSummary: [], error: "Invalid student ID" } }));
       setCoLoading((prev) => ({ ...prev, [studentId]: false }));
       return;
@@ -154,31 +131,18 @@ const Dashboard = () => {
       if (!token) {
         throw new Error("No token found");
       }
-      const url = `${baseUrl}/students/calculate-co-po/${studentId}`;
-      console.log(`Fetching CO data from: ${url}`);
-      const response = await axios.get(url, {
+      const response = await axios.get(`${baseUrl}/students/calculate-co-po/${studentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.data || typeof response.data !== "object") {
-        throw new Error("Invalid CO data response: Response data is not an object");
-      }
       setCoData((prev) => ({ ...prev, [studentId]: response.data }));
-      console.log(`CO data for student ${studentId}:`, response.data);
     } catch (error) {
       console.error(`Error fetching CO data for student ${studentId}:`, error);
-      console.error(`Failed URL: ${baseUrl}/students/calculate-co-po/${studentId}`);
-      if (error.response?.status === 401) {
-        alert("Session expired! Please log in again.");
-        localStorage.removeItem("token");
-        navigate("/login");
-        return;
-      }
+      console.error("Response:", error.response?.data);
       setCoData((prev) => ({
         ...prev,
         [studentId]: { coSummary: [], error: error.message || "Failed to fetch CO data" },
       }));
       if (retryCount < 2) {
-        console.log(`Retrying fetchCoData for student ${studentId} (attempt ${retryCount + 1})...`);
         setTimeout(() => fetchCoData(studentId, retryCount + 1), 1000);
       }
     } finally {
@@ -212,7 +176,7 @@ const Dashboard = () => {
             studentId: student.student_id,
             name: student.name,
             department: student.department,
-            average: student.average,
+            average: student.average || "N/A",
             coAttainment: coData[student.student_id]?.coSummary
               ?.map((co) => `${co.coId}: ${co.avgAttainment.toFixed(2)}% (Level ${assignCOLevel(co.avgAttainment)})`)
               .join(", ") || "N/A",
@@ -258,7 +222,7 @@ const Dashboard = () => {
           student.student_id,
           student.name,
           student.department,
-          student.average,
+          student.average || "N/A",
           coData[student.student_id]?.coSummary
             ?.map((co) => `${co.coId}: ${co.avgAttainment.toFixed(2)}% (Level ${assignCOLevel(co.avgAttainment)})`)
             .join(", ") || "N/A",
@@ -281,10 +245,11 @@ const Dashboard = () => {
       console.warn("Cannot fetch CO data: studentId is invalid", studentId);
       return;
     }
-    setFlippedCards((prev) => ({
-      ...prev,
-      [studentId]: !prev[studentId],
-    }));
+    setFlippedCards((prev) => {
+      const newFlippedState = { ...prev, [studentId]: !prev[studentId] };
+      setRenderKey((prev) => prev + 1);
+      return newFlippedState;
+    });
     fetchCoData(studentId);
   };
 
@@ -297,6 +262,7 @@ const Dashboard = () => {
   };
 
   const openAddStudentModal = (e) => {
+    e.stopPropagation();
     setModalType("add");
     setFormData({
       id: "",
@@ -315,6 +281,7 @@ const Dashboard = () => {
   };
 
   const openUpdateMarksModal = (student, e) => {
+    e.stopPropagation();
     setModalType("update");
     setFormData({
       id: student.student_id,
@@ -447,55 +414,73 @@ const Dashboard = () => {
             target: parseFloat(target.target) || 70,
           })),
         };
-        console.log("Submitting new student:", newStudent);
+        console.log("Adding new student payload:", newStudent);
         await axios.post(`${baseUrl}/students`, newStudent, {
           headers: { Authorization: `Bearer ${token}` },
         });
         alert("Student added successfully!");
       } else if (modalType === "update") {
-        const updatedMarks = {
-          marks: [
-            {
-              year: formData.year,
-              internal: parseFloat(formData.internalMarks) || 0,
-              exam: parseFloat(formData.examMarks) || 0,
-              totalInternal: parseFloat(formData.totalInternal) || 0,
-              totalExam: parseFloat(formData.totalExam) || 0,
-              coMapping: formData.coMapping.map((co) => ({
-                coId: co.coId,
-                internal: parseFloat(co.internal) || 0,
-                exam: parseFloat(co.exam) || 0,
-                totalInternal: parseFloat(co.totalInternal) || 0,
-                totalExam: parseFloat(co.totalExam) || 0,
-              })),
-            },
-          ],
+        // Validate required fields
+        if (!formData.year || !formData.internalMarks || !formData.examMarks || !formData.totalInternal || !formData.totalExam) {
+          alert("Please fill in all required fields (year, internal marks, exam marks, total internal, total exam).");
+          setLoading(false);
+          return;
+        }
+  
+        // Prepare the new marks entry
+        const newMarksEntry = {
+          year: formData.year,
+          internal: parseFloat(formData.internalMarks) || 0,
+          exam: parseFloat(formData.examMarks) || 0,
+          totalInternal: parseFloat(formData.totalInternal) || 0,
+          totalExam: parseFloat(formData.totalExam) || 0,
+          coMapping: formData.coMapping.map((co) => ({
+            coId: co.coId,
+            internal: parseFloat(co.internal) || 0,
+            exam: parseFloat(co.exam) || 0,
+            totalInternal: parseFloat(co.totalInternal) || 0,
+            totalExam: parseFloat(co.totalExam) || 0,
+          })),
         };
-        await axios.put(
+  
+        // Update the student with the new marks
+        const marksUpdatePayload = {
+          marks: [newMarksEntry], // Send as an array since the backend expects an array
+        };
+        console.log("Updating marks payload:", marksUpdatePayload);
+        const marksResponse = await axios.put(
           `${baseUrl}/students/${editingStudentId}`,
-          updatedMarks,
+          marksUpdatePayload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+  
+        // Update CO/PO data and adjust targets
         const updatedCoData = await axios.get(`${baseUrl}/students/calculate-co-po/${editingStudentId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const adjustedTargets = adjustTargetsAutomatically(formData.coTargets, updatedCoData.data.coSummary);
+  
+        // Update course outcomes separately
+        const courseOutcomesPayload = {
+          courseOutcomes: adjustedTargets.map((target) => ({
+            coId: target.coId,
+            target: parseFloat(target.target) || 70,
+          })),
+        };
+        console.log("Updating course outcomes payload:", courseOutcomesPayload);
         await axios.put(
-          `${baseUrl}/students/${editingStudentId}`,
-          {
-            courseOutcomes: adjustedTargets.map((target) => ({
-              coId: target.coId,
-              target: parseFloat(target.target) || 70,
-            })),
-          },
+          `${baseUrl}/students/${editingStudentId}/course-outcomes`,
+          courseOutcomesPayload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+  
         alert("Marks updated and targets adjusted successfully!");
       }
       setIsModalOpen(false);
       fetchStudents();
     } catch (error) {
       console.error("Error submitting form:", error);
+      console.error("Response:", error.response?.data);
       if (error.response?.status === 401) {
         alert("Session expired! Please log in again.");
         localStorage.removeItem("token");
@@ -508,19 +493,103 @@ const Dashboard = () => {
     }
   };
 
-  const calculateStudentAverage = (student) => {
-    if (!student.Marks || student.Marks.length === 0) {
-      return "N/A";
+  const handleImportExcel = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+  
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("No token found");
+      }
+  
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(sheet);
+  
+        const studentsToAdd = jsonData.map((row) => {
+          const coMapping = [];
+          const coTargets = [];
+          let coIndex = 1;
+  
+          // Parse CO data dynamically (e.g., co1, co2, co3, ...)
+          while (row[`co${coIndex} internal marks`] !== undefined) {
+            const coId = `CO${coIndex}`;
+            coMapping.push({
+              coId,
+              internal: parseFloat(row[`co${coIndex} internal marks`]) || 0,
+              exam: parseFloat(row[`co${coIndex} exam marks`]) || 0,
+              totalInternal: parseFloat(row[`co${coIndex} internal total`]) || 0,
+              totalExam: parseFloat(row[`co${coIndex} exam total`]) || 0,
+            });
+            coTargets.push({
+              coId,
+              target: parseFloat(row[`co${coIndex} target %`]) || 70,
+            });
+            coIndex++;
+          }
+  
+          return {
+            studentId: row["student id"]?.toString(),
+            name: row["student name"],
+            department: row["department"],
+            marks: [
+              {
+                year: row["year"]?.toString() || new Date().getFullYear().toString(),
+                internal: parseFloat(row["internal marks"]) || 0,
+                exam: parseFloat(row["exam marks"]) || 0,
+                totalInternal: parseFloat(row["total internal marks"]) || 0,
+                totalExam: parseFloat(row["total exam marks"]) || 0,
+                coMapping: coMapping.length > 0 ? coMapping : [{ coId: "CO1", internal: 0, exam: 0, totalInternal: 0, totalExam: 0 }],
+              },
+            ],
+            courseOutcomes: coTargets.length > 0 ? coTargets : [{ coId: "CO1", target: 70 }],
+          };
+        });
+  
+        // Validate and filter out invalid entries
+        const validStudents = studentsToAdd.filter(student => {
+          if (!student.studentId || !student.name || !student.department) {
+            console.warn("Skipping invalid student entry:", student);
+            return false;
+          }
+          return true;
+        });
+  
+        if (validStudents.length === 0) {
+          alert("No valid student data found in the Excel file.");
+          setLoading(false);
+          return;
+        }
+  
+        // Send each student to the backend
+        for (const student of validStudents) {
+          console.log("Importing student payload:", student);
+          await axios.post(`${baseUrl}/students`, student, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+  
+        alert("Students imported successfully!");
+        fetchStudents();
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error("Error importing Excel:", error);
+      if (error.response?.status === 401) {
+        alert("Session expired! Please log in again.");
+        localStorage.removeItem("token");
+        navigate("/login");
+        return;
+      }
+      alert(error.response?.data?.error || "Failed to import students.");
+    } finally {
+      setLoading(false);
     }
-
-    const totalMarks = student.Marks.reduce((sum, mark) => {
-      const internalPercentage = (mark.internal / (mark.totalInternal || 1)) * 100;
-      const examPercentage = (mark.exam / (mark.totalExam || 1)) * 100;
-      return sum + (internalPercentage + examPercentage) / 2;
-    }, 0);
-
-    const average = totalMarks / student.Marks.length;
-    return average.toFixed(2);
   };
 
   const filteredStudents = students.filter(
@@ -530,61 +599,8 @@ const Dashboard = () => {
       (!filter.department || student.department.toLowerCase().includes(filter.department.toLowerCase()))
   );
 
-  const coChartData = (studentId) => {
-    const data = coData[studentId] || { coSummary: [], error: null };
-    if (data.error) {
-      return {
-        labels: ["Error"],
-        datasets: [
-          {
-            label: "Attainment (%)",
-            data: [0],
-            backgroundColor: "rgba(255, 99, 132, 0.6)",
-            borderColor: "rgba(255, 99, 132, 1)",
-            borderWidth: 1,
-            barThickness: 20,
-          },
-        ],
-      };
-    }
-    const coSummary = Array.isArray(data.coSummary) ? data.coSummary : [];
-    console.log(`CO Chart Data for student ${studentId}:`, coSummary);
-    if (!coSummary || coSummary.length === 0) {
-      return {
-        labels: ["No Data"],
-        datasets: [
-          {
-            label: "Attainment (%)",
-            data: [0],
-            backgroundColor: "rgba(40, 167, 69, 0.6)",
-            borderColor: "rgba(40, 167, 69, 1)",
-            borderWidth: 1,
-            barThickness: 20,
-          },
-        ],
-      };
-    }
-    const labels = coSummary.map((co) => co.coId) || [];
-    const dataValues = coSummary.map((co) => co.avgAttainment || 0) || [];
-    console.log(`CO Chart Data - Labels: ${labels}, Data: ${dataValues}`);
-    return {
-      labels,
-      datasets: [
-        {
-          label: "Attainment (%)",
-          data: dataValues,
-          backgroundColor: "rgba(40, 167, 69, 0.6)",
-          borderColor: "rgba(40, 167, 69, 1)",
-          borderWidth: 1,
-          barThickness: 20,
-        },
-      ],
-    };
-  };
-
   const historicalChartData = (student) => {
     const marks = student?.Marks || [];
-    console.log(`Historical Chart Data for student ${student?.student_id || 'unknown'}:`, marks);
     if (!marks || marks.length === 0) {
       return {
         labels: ["No Data"],
@@ -610,16 +626,8 @@ const Dashboard = () => {
     }
 
     const labels = marks.map((m, index) => m.year || `Entry ${index + 1}`);
-    const internalData = marks.map((m) => {
-      const percentage = (m.internal / (m.totalInternal || 1)) * 100;
-      return isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
-    });
-    const examData = marks.map((m) => {
-      const percentage = (m.exam / (m.totalExam || 1)) * 100;
-      return isNaN(percentage) || !isFinite(percentage) ? 0 : percentage;
-    });
-
-    console.log(`Historical Chart Data - Labels: ${labels}, Internal: ${internalData}, Exam: ${examData}`);
+    const internalData = marks.map((m) => (m.internal / (m.totalInternal || 1)) * 100);
+    const examData = marks.map((m) => (m.exam / (m.totalExam || 1)) * 100);
 
     return {
       labels,
@@ -644,45 +652,86 @@ const Dashboard = () => {
     };
   };
 
-  const calculateThreeYearComparison = (student) => {
-    const recentMarks = student?.Marks?.slice(-3) || [];
-    const avgInternal = recentMarks.reduce((sum, m) => sum + (m.internal / (m.totalInternal || 1) * 100), 0) / (recentMarks.length || 1) || 0;
-    const avgExam = recentMarks.reduce((sum, m) => sum + (m.exam / (m.totalExam || 1) * 100), 0) / (recentMarks.length || 1) || 0;
-    const latest = recentMarks[recentMarks.length - 1] || { internal: 0, totalInternal: 1, exam: 0, totalExam: 1 };
-    const currentInternal = (latest.internal / (latest.totalInternal || 1)) * 100 || 0;
-    const currentExam = (latest.exam / (latest.totalExam || 1)) * 100 || 0;
+  const coChartData = (studentId) => {
+    const data = coData[studentId];
+    if (!data || !data.coSummary || data.coSummary.length === 0) {
+      return {
+        labels: ["No Data"],
+        datasets: [
+          {
+            label: "Attainment (%)",
+            data: [0],
+            backgroundColor: "rgba(54, 162, 235, 0.6)",
+            borderColor: "rgba(54, 162, 235, 1)",
+            borderWidth: 1,
+            barThickness: 20,
+          },
+        ],
+      };
+    }
+
     return {
-      avgInternal: avgInternal.toFixed(2),
-      avgExam: avgExam.toFixed(2),
-      internalAboveAvg: currentInternal > avgInternal ? "Above" : "Below",
-      examAboveAvg: currentExam > avgExam ? "Above" : "Below",
+      labels: data.coSummary.map((co) => co.coId),
+      datasets: [
+        {
+          label: "Attainment (%)",
+          data: data.coSummary.map((co) => co.avgAttainment),
+          backgroundColor: "rgba(54, 162, 235, 0.6)",
+          borderColor: "rgba(54, 162, 235, 1)",
+          borderWidth: 1,
+          barThickness: 20,
+        },
+        {
+          label: "Target (%)",
+          data: data.coSummary.map((co) => co.target),
+          backgroundColor: "rgba(255, 206, 86, 0.6)",
+          borderColor: "rgba(255, 206, 86, 1)",
+          borderWidth: 1,
+          barThickness: 20,
+        },
+      ],
     };
   };
 
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: "top" },
+      title: { display: true, text: "Performance Overview" },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100,
+        title: { display: true, text: "Percentage (%)" },
+      },
+    },
+  };
+
   return (
-    <div className={`dashboard-container ${darkMode ? "dark-mode" : ""}`}>
-      <div className="dashboard-header">
-        <h2>Student Performance Dashboard</h2>
-        <div className="header-nav">
-          <button onClick={() => navigate("/university-performance")} className="nav-btn">
-            University Performance
-          </button>
-          <button onClick={() => navigate("/semester-results-upload")} className="nav-btn">
-            Upload Semester Results
-          </button>
-          <div className="export-buttons">
-            <button className="export-btn" onClick={exportToExcel} disabled={loading}>
-              <FaFileExcel /> Export Excel {loading && "(Loading...)"}
-            </button>
-            <button className="export-btn" onClick={exportToPDF} disabled={loading}>
-              <FaFilePdf /> Export PDF {loading && "(Loading...)"}
-            </button>
-          </div>
-          <button className="theme-toggle" onClick={toggleDarkMode}>
+    <div className={`dashboard ${darkMode ? "dark-mode" : ""}`}>
+      <header className="dashboard-header">
+        <h1>Student Performance Tracker</h1>
+        <div className="header-actions">
+          <button onClick={toggleDarkMode} className="theme-toggle">
             {darkMode ? <FaSun /> : <FaMoon />}
           </button>
+          <button onClick={exportToExcel} disabled={loading}>
+            <FaFileExcel /> Export to Excel
+          </button>
+          <button onClick={exportToPDF} disabled={loading}>
+            <FaFilePdf /> Export to PDF
+          </button>
+          <label className="import-btn">
+            <FaFileImport /> Import Excel
+            <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} hidden />
+          </label>
+          <button onClick={fetchStudents} disabled={loading}>
+            <FaSyncAlt /> Refresh
+          </button>
         </div>
-      </div>
+      </header>
 
       <div className="filters">
         <input
@@ -693,7 +742,7 @@ const Dashboard = () => {
         />
         <input
           type="text"
-          placeholder="Filter by Course/Name"
+          placeholder="Filter by Course"
           value={filter.course}
           onChange={(e) => setFilter({ ...filter, course: e.target.value })}
         />
@@ -705,338 +754,223 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="student-cards">
-        {loading ? (
-          <p>Loading students...</p>
-        ) : filteredStudents.length === 0 ? (
-          <p className="no-students-message">No students available. Add a new student!</p>
-        ) : (
-          filteredStudents.map((student, index) => {
-            if (!student || !student.student_id || !student.name || !student.department) {
-              console.warn("Skipping rendering of invalid student:", student);
-              return null;
-            }
+      <div className="student-grid">
+        <div className="student-card add-student-card" onClick={openAddStudentModal}>
+          <div className="card-front">
+            <h3>Add Student</h3>
+            <FaPlus className="add-icon" />
+          </div>
+        </div>
 
-            const threeYearComp = calculateThreeYearComparison(student);
-            const isFlipped = flippedCards[student.student_id] || false;
-            const renderKey = useChartRender(isFlipped);
-
-            return (
-              <div
-                key={student.student_id || index}
-                className={`student-card ${isFlipped ? "flipped" : ""}`}
-                onClick={(e) => handleCardClick(e, student.student_id)}
-              >
-                <div className="card-inner">
-                  <div className="card-front">
-                    <button
-                      className="delete-btn"
-                      onClick={(e) => handleDelete(student.student_id, e)}
-                    >
-                      <FaTrash />
-                    </button>
-                    <div className="student-info">
-                      <span>
-                        <strong>Student ID:</strong> {student.student_id}
-                      </span>
-                      <span>
-                        <strong>Name:</strong> {student.name}
-                      </span>
-                      <span>
-                        <strong>Department:</strong> {student.department}
-                      </span>
-                      <span>
-                        <strong>Average:</strong> {student.average || "N/A"}
-                      </span>
-                    </div>
-                    <button
-                      className="add-marks-btn"
-                      onClick={(e) => openUpdateMarksModal(student, e)}
-                    >
-                      <span className="add-marks-text">+ Add Marks</span>
-                    </button>
-                  </div>
-                  <div className="card-back">
-                    <button
-                      className="details-btn"
-                      onClick={() => toggleDetails(student.student_id)}
-                    >
-                      <FaEye /> {showDetails[student.student_id] ? "Hide Details" : "Show Details"}
-                    </button>
-                    {showDetails[student.student_id] && (
-                      <>
-                        <h3>Performance Trends</h3>
-                        <div className="chart-container">
-                          {student.Marks && student.Marks.length > 0 ? (
-                            <ChartErrorBoundary>
-                              <Bar
-                                key={`historical-${student.student_id}-${renderKey}`}
-                                data={historicalChartData(student)}
-                                options={{
-                                  responsive: true,
-                                  maintainAspectRatio: false,
-                                  layout: {
-                                    padding: {
-                                      left: 10,
-                                      right: 10,
-                                      top: 10,
-                                      bottom: 10,
-                                    },
-                                  },
-                                  plugins: {
-                                    legend: {
-                                      position: "top",
-                                      labels: {
-                                        font: {
-                                          size: 10,
-                                        },
-                                      },
-                                    },
-                                    title: {
-                                      display: true,
-                                      text: "Historical Performance",
-                                      font: {
-                                        size: 14,
-                                      },
-                                    },
-                                  },
-                                  scales: {
-                                    x: {
-                                      ticks: {
-                                        autoSkip: true,
-                                        maxRotation: 0,
-                                        minRotation: 0,
-                                        font: {
-                                          size: 10,
-                                        },
-                                      },
-                                    },
-                                    y: {
-                                      beginAtZero: true,
-                                      max: 100,
-                                      ticks: {
-                                        font: {
-                                          size: 10,
-                                        },
-                                        stepSize: 25,
-                                      },
-                                    },
-                                  },
-                                }}
-                              />
-                            </ChartErrorBoundary>
-                          ) : (
-                            <p>No historical data available.</p>
-                          )}
-                        </div>
-                        <h3>3-Year Comparison</h3>
-                        <p>Internal Avg: {threeYearComp.avgInternal}% ({threeYearComp.internalAboveAvg})</p>
-                        <p>Exam Avg: {threeYearComp.avgExam}% ({threeYearComp.examAboveAvg})</p>
-                        <h3>CO/PO Attainment</h3>
-                        <div className="chart-container">
-                          {coLoading[student.student_id] ? (
-                            <p>Loading CO data...</p>
-                          ) : coData[student.student_id] && coData[student.student_id].coSummary?.length > 0 ? (
-                            <ChartErrorBoundary>
-                              <Bar
-                                key={`co-${student.student_id}-${renderKey}`}
-                                data={coChartData(student.student_id)}
-                                options={{
-                                  responsive: true,
-                                  maintainAspectRatio: false,
-                                  layout: {
-                                    padding: {
-                                      left: 10,
-                                      right: 10,
-                                      top: 10,
-                                      bottom: 10,
-                                    },
-                                  },
-                                  plugins: {
-                                    legend: {
-                                      position: "top",
-                                      labels: {
-                                        font: {
-                                          size: 10,
-                                        },
-                                      },
-                                    },
-                                    title: {
-                                      display: true,
-                                      text: "CO/PO Attainment",
-                                      font: {
-                                        size: 14,
-                                      },
-                                    },
-                                  },
-                                  scales: {
-                                    x: {
-                                      ticks: {
-                                        autoSkip: true,
-                                        maxRotation: 0,
-                                        minRotation: 0,
-                                        font: {
-                                          size: 10,
-                                        },
-                                      },
-                                    },
-                                    y: {
-                                      beginAtZero: true,
-                                      max: 100,
-                                      ticks: {
-                                        font: {
-                                          size: 10,
-                                        },
-                                        stepSize: 25,
-                                      },
-                                    },
-                                  },
-                                }}
-                              />
-                            </ChartErrorBoundary>
-                          ) : (
-                            <p>No CO data available yet. {coData[student.student_id]?.error || ""}</p>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
+        {filteredStudents.map((student) => (
+          <div
+            key={student.student_id}
+            className={`student-card ${flippedCards[student.student_id] ? "flipped" : ""}`}
+            onClick={(e) => handleCardClick(e, student.student_id)}
+          >
+            <div className="card-front">
+              <h3>{student.name}</h3>
+              <p>ID: {student.student_id}</p>
+              <p>Department: {student.department}</p>
+              <p>Average: {student.average || "N/A"}%</p>
+              <div className="card-actions">
+                <button className="add-marks-btn" onClick={(e) => openUpdateMarksModal(student, e)}>
+                  Add Marks
+                </button>
+                <button className="delete-btn" onClick={(e) => handleDelete(student.student_id, e)}>
+                  <FaTrash />
+                </button>
+                <button className="details-btn" onClick={() => toggleDetails(student.student_id)}>
+                  <FaEye />
+                </button>
               </div>
-            );
-          })
-        )}
-
-        <button className="add-student-btn" onClick={(e) => openAddStudentModal(e)} disabled={loading}>
-          <FaPlus className="plus-icon" /> Add Student
-        </button>
+            </div>
+            <div className="card-back">
+              {coLoading[student.student_id] ? (
+                <p>Loading CO/PO data...</p>
+              ) : coData[student.student_id]?.error ? (
+                <p>Error: {coData[student.student_id].error}</p>
+              ) : (
+                <>
+                  <h4>CO Attainment</h4>
+                  <ChartErrorBoundary>
+                    <div className="chart-container">
+                      <Bar data={coChartData(student.student_id)} options={chartOptions} />
+                    </div>
+                  </ChartErrorBoundary>
+                  {showDetails[student.student_id] && (
+                    <>
+                      <h4>Historical Performance</h4>
+                      <ChartErrorBoundary>
+                        <div className="chart-container">
+                          <Bar data={historicalChartData(student)} options={chartOptions} />
+                        </div>
+                      </ChartErrorBoundary>
+                      <h4>PO Attainment</h4>
+                      <ul>
+                        {coData[student.student_id]?.poSummary?.map((po, index) => (
+                          <li key={index}>
+                            {po.poId}: {po.avgAttainment.toFixed(2)}%
+                          </li>
+                        )) || <li>No PO data available</li>}
+                      </ul>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal" key={modalType}>
-            <button className="close-btn" onClick={() => setIsModalOpen(false)}>
-              ❌
-            </button>
-            <h2>{modalType === "add" ? "Add Student" : "Add Marks"}</h2>
+        <div className="modal">
+          <div className="modal-content">
+            <h2>{modalType === "add" ? "Add Student" : "Update Marks"}</h2>
             <form onSubmit={handleSubmit}>
-              {modalType === "add" && (
-                <>
-                  <input
-                    type="text"
-                    name="id"
-                    placeholder="Student ID"
-                    value={formData.id}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Student Name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  <input
-                    type="text"
-                    name="department"
-                    placeholder="Department"
-                    value={formData.department}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </>
-              )}
-              <input
-                type="text"
-                name="year"
-                placeholder="Year"
-                value={formData.year}
-                onChange={handleInputChange}
-                required
-              />
-              <input
-                type="number"
-                name="internalMarks"
-                placeholder="Internal Marks"
-                value={formData.internalMarks}
-                onChange={handleInputChange}
-                required
-              />
-              <input
-                type="number"
-                name="totalInternal"
-                placeholder="Total Internal Marks"
-                value={formData.totalInternal}
-                onChange={handleInputChange}
-                required
-              />
-              <input
-                type="number"
-                name="examMarks"
-                placeholder="Exam Marks"
-                value={formData.examMarks}
-                onChange={handleInputChange}
-                required
-              />
-              <input
-                type="number"
-                name="totalExam"
-                placeholder="Total Exam Marks"
-                value={formData.totalExam}
-                onChange={handleInputChange}
-                required
-              />
-              <h3>CO Mapping</h3>
+              <div className="form-group">
+                <label>Student ID</label>
+                <input
+                  type="text"
+                  name="id"
+                  value={formData.id}
+                  onChange={handleInputChange}
+                  disabled={modalType === "update"}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  disabled={modalType === "update"}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Department</label>
+                <input
+                  type="text"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleInputChange}
+                  disabled={modalType === "update"}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Year</label>
+                <input
+                  type="text"
+                  name="year"
+                  value={formData.year}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Internal Marks</label>
+                <input
+                  type="number"
+                  name="internalMarks"
+                  value={formData.internalMarks}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Total Internal Marks</label>
+                <input
+                  type="number"
+                  name="totalInternal"
+                  value={formData.totalInternal}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Exam Marks</label>
+                <input
+                  type="number"
+                  name="examMarks"
+                  value={formData.examMarks}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Total Exam Marks</label>
+                <input
+                  type="number"
+                  name="totalExam"
+                  value={formData.totalExam}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <h4>CO Mapping</h4>
               {formData.coMapping.map((co, index) => (
-                <div key={index}>
-                  <input
-                    type="number"
-                    placeholder={`CO${index + 1} Internal Marks`}
-                    value={co.internal}
-                    onChange={(e) => handleInputChange(e, index, "internal")}
-                    required
-                  />
-                  <input
-                    type="number"
-                    placeholder={`CO${index + 1} Internal Total`}
-                    value={co.totalInternal}
-                    onChange={(e) => handleInputChange(e, index, "totalInternal")}
-                    required
-                  />
-                  <input
-                    type="number"
-                    placeholder={`CO${index + 1} Exam Marks`}
-                    value={co.exam}
-                    onChange={(e) => handleInputChange(e, index, "exam")}
-                    required
-                  />
-                  <input
-                    type="number"
-                    placeholder={`CO${index + 1} Exam Total`}
-                    value={co.totalExam}
-                    onChange={(e) => handleInputChange(e, index, "totalExam")}
-                    required
-                  />
+                <div key={index} className="co-mapping">
+                  <div className="form-group">
+                    <label>CO ID</label>
+                    <input type="text" value={co.coId} disabled />
+                  </div>
+                  <div className="form-group">
+                    <label>Internal Marks</label>
+                    <input
+                      type="number"
+                      value={co.internal}
+                      onChange={(e) => handleInputChange(e, index, "internal")}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Total Internal</label>
+                    <input
+                      type="number"
+                      value={co.totalInternal}
+                      onChange={(e) => handleInputChange(e, index, "totalInternal")}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Exam Marks</label>
+                    <input
+                      type="number"
+                      value={co.exam}
+                      onChange={(e) => handleInputChange(e, index, "exam")}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Total Exam</label>
+                    <input
+                      type="number"
+                      value={co.totalExam}
+                      onChange={(e) => handleInputChange(e, index, "totalExam")}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Target (%)</label>
+                    <input
+                      type="number"
+                      value={formData.coTargets[index]?.target || ""}
+                      onChange={(e) => handleInputChange(e, index, "target")}
+                    />
+                  </div>
                 </div>
               ))}
-              <button type="button" onClick={addCoMapping}>Add CO</button>
-              <h3>CO Targets</h3>
-              {formData.coTargets.map((co, index) => (
-                <div key={index}>
-                  <input
-                    type="number"
-                    placeholder={`CO${index + 1} Target (%)`}
-                    value={co.target}
-                    onChange={(e) => handleInputChange(e, index, "target")}
-                    required
-                  />
-                </div>
-              ))}
-              <button type="submit" disabled={loading}>
-                Save {loading && "(Saving...)"}
+              <button type="button" onClick={addCoMapping}>
+                Add CO Mapping
               </button>
+              <div className="modal-actions">
+                <button type="submit" disabled={loading}>
+                  {modalType === "add" ? "Add Student" : "Update Marks"}
+                </button>
+                <button type="button" onClick={() => setIsModalOpen(false)} disabled={loading}>
+                  Cancel
+                </button>
+              </div>
             </form>
           </div>
         </div>
